@@ -64,53 +64,57 @@ export function QuestionPanel({
         {getStatusIndicator()}
       </Box>
 
-      {/* Content based on status */}
-      {status === "debating" && currentSpeakerId && (
-        <Box flexDirection="column" marginTop={1}>
-          {/* Show current activity line */}
-          <Box>
-            <Text color={speakerColor} bold>
-              {currentSpeakerName}:{" "}
-            </Text>
+      {/* Content area with fixed height to prevent layout jumping */}
+      <Box flexDirection="column" marginTop={1} minHeight={3}>
+        {status === "debating" && currentSpeakerId && (
+          <>
+            {/* Show current activity line */}
+            <Box>
+              <Text color={speakerColor} bold>
+                {currentSpeakerName}:{" "}
+              </Text>
+              {isNarratorStreaming ? (
+                <Spinner />
+              ) : streamingText ? (
+                <Spinner />
+              ) : !narratorSummary ? (
+                <Text dimColor>thinking...</Text>
+              ) : null}
+            </Box>
+            {/* Show content: narrator streaming, raw streaming, or persisted summary */}
             {isNarratorStreaming ? (
-              <Spinner />
+              <Text wrap="wrap" color={theme.accent}>
+                {truncatedStream || "..."}
+              </Text>
             ) : streamingText ? (
-              <Spinner />
-            ) : !narratorSummary ? (
-              <Text dimColor>thinking...</Text>
+              <Text wrap="wrap">
+                {truncatedStream}
+              </Text>
+            ) : narratorSummary ? (
+              <Text wrap="wrap" color={theme.accent}>
+                {narratorSummary}
+              </Text>
             ) : null}
-          </Box>
-          {/* Show content: narrator streaming, raw streaming, or persisted summary */}
-          {isNarratorStreaming ? (
-            <Text wrap="wrap" color={theme.accent}>
-              {truncatedStream || "..."}
-            </Text>
-          ) : streamingText ? (
-            <Text wrap="wrap">
-              {truncatedStream}
-            </Text>
-          ) : narratorSummary ? (
-            <Text wrap="wrap" color={theme.accent}>
-              {narratorSummary}
-            </Text>
-          ) : null}
-        </Box>
-      )}
+          </>
+        )}
 
-      {status === "judging" && (
-        <Box marginTop={1}>
+        {status === "judging" && (
           <Spinner label="Judge evaluating..." />
-        </Box>
-      )}
+        )}
 
-      {status === "complete" && verdict && (
-        <Box marginTop={1}>
-          <Text color={theme.success}>🏆 </Text>
-          <Text bold color={verdict.winnerId === speaker1Id ? theme.speaker1 : theme.speaker2}>
-            {verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name}
-          </Text>
-        </Box>
-      )}
+        {status === "complete" && verdict && (
+          <Box>
+            <Text color={theme.success}>🏆 </Text>
+            <Text bold color={verdict.winnerId === speaker1Id ? theme.speaker1 : theme.speaker2}>
+              {verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name}
+            </Text>
+          </Box>
+        )}
+
+        {status === "pending" && (
+          <Text dimColor>Waiting to start...</Text>
+        )}
+      </Box>
     </Box>
   );
 }

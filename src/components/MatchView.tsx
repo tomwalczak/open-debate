@@ -111,33 +111,31 @@ export function MatchView({
             label={`Debate ${currentDebate}:`}
           />
 
-          {/* Active Questions */}
-          {activeQuestions.length > 0 && (
+          {/* Active Questions - always show section header */}
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold color={theme.accent}>
+              Active ({activeQuestions.length})
+            </Text>
             <Box flexDirection="column" marginTop={1}>
-              <Text bold color={theme.accent}>
-                Active ({activeQuestions.length})
-              </Text>
-              <Box flexDirection="column" marginTop={1}>
-                {activeQuestions.map((qs) => (
-                  <QuestionPanel
-                    key={qs.questionIndex}
-                    state={qs}
-                    speaker1Id={firstSpeaker.id}
-                    speaker1Name={firstSpeaker.name}
-                    speaker2Name={secondSpeaker.name}
-                    totalRounds={config.roundsPerQuestion}
-                  />
-                ))}
-              </Box>
+              {activeQuestions.map((qs) => (
+                <QuestionPanel
+                  key={qs.questionIndex}
+                  state={qs}
+                  speaker1Id={firstSpeaker.id}
+                  speaker1Name={firstSpeaker.name}
+                  speaker2Name={secondSpeaker.name}
+                  totalRounds={config.roundsPerQuestion}
+                />
+              ))}
             </Box>
-          )}
+          </Box>
 
-          {/* Completed Questions */}
-          {completedQuestions.length > 0 && (
-            <Box flexDirection="column" marginTop={1}>
-              <Text bold color={theme.success}>Completed:</Text>
-              <Box flexWrap="wrap" marginTop={1}>
-                {completedQuestions.map((qs, i) => (
+          {/* Completed Questions - always show section to prevent layout shift */}
+          <Box flexDirection="column" marginTop={1} minHeight={2}>
+            <Text bold color={theme.success}>Completed:</Text>
+            <Box flexWrap="wrap" marginTop={1}>
+              {completedQuestions.length > 0 ? (
+                completedQuestions.map((qs, i) => (
                   <Box key={qs.questionIndex} marginRight={2}>
                     <Text dimColor>
                       Q{qs.questionIndex + 1}{" "}
@@ -147,10 +145,12 @@ export function MatchView({
                       {i < completedQuestions.length - 1 ? " |" : ""}
                     </Text>
                   </Box>
-                ))}
-              </Box>
+                ))
+              ) : (
+                <Text dimColor>-</Text>
+              )}
             </Box>
-          )}
+          </Box>
         </>
       )}
 
