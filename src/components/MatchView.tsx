@@ -180,16 +180,8 @@ export function MatchView({
           {matchSummary ? (
             <Box flexDirection="column" marginTop={1}>
               <Text bold color={theme.accent}>Judge's Analysis:</Text>
-              <Box marginTop={1} flexDirection="column">
-                <Text wrap="wrap">{matchSummary.trajectory}</Text>
-              </Box>
-              <Box marginTop={1} flexDirection="column">
-                <Text bold dimColor>Key Arguments:</Text>
-                <Text wrap="wrap">{matchSummary.keyArguments}</Text>
-              </Box>
-              <Box marginTop={1} flexDirection="column">
-                <Text bold dimColor>Verdict:</Text>
-                <Text wrap="wrap" color={theme.accent}>{matchSummary.verdict}</Text>
+              <Box marginTop={1}>
+                <Text wrap="wrap">{matchSummary.summary}</Text>
               </Box>
             </Box>
           ) : (

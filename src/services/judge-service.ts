@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { z } from "zod";
 import { getModel, DEFAULT_MODEL_ID } from "./openrouter.js";
 import type { AgentConfig } from "../types/agent.js";
@@ -58,12 +58,6 @@ export function calculateFinalTally(
   return { speaker1Wins, speaker2Wins, ties };
 }
 
-const matchSummarySchema = z.object({
-  trajectory: z.string().describe("2-3 sentences on how the match unfolded - momentum shifts, comebacks, patterns"),
-  keyArguments: z.string().describe("2-3 most powerful arguments that swung verdicts, with speaker attribution"),
-  verdict: z.string().describe("1 sentence final assessment of why the winner won"),
-});
-
 export async function generateMatchSummary(
   speaker1Name: string,
   speaker2Name: string,
@@ -109,27 +103,18 @@ export async function generateMatchSummary(
   const totalS2 = debates.reduce((sum, d) => sum + d.finalTally.speaker2Wins, 0);
   const overallWinner = totalS1 > totalS2 ? speaker1Name : totalS2 > totalS1 ? speaker2Name : "Tie";
 
-  const { object } = await generateObject({
+  const { text } = await generateText({
     model: getModel(modelId),
-    schema: matchSummarySchema,
-    prompt: `You are a debate analyst. Analyze this ${debates.length}-debate match and provide a high-signal summary.
+    prompt: `You are a debate analyst. Write a concise, high-signal summary (4-6 sentences) of this ${debates.length}-debate match.
 
-SPEAKERS (use these names ONLY - ignore any IDs in the data):
-- Speaker 1: ${speaker1Name}
-- Speaker 2: ${speaker2Name}
-
+${speaker1Name} vs ${speaker2Name}
 Final Score: ${speaker1Name} ${totalS1} - ${totalS2} ${speaker2Name}
 Winner: ${overallWinner}
 
 ${debateSummaries}
 
-Focus on:
-1. Trajectory: How did momentum shift? Any comebacks or dominant runs?
-2. Key Arguments: Which specific arguments were most effective? Quote or paraphrase them.
-3. Verdict: In one sentence, why did the winner win?
-
-IMPORTANT: Always refer to speakers as "${speaker1Name}" and "${speaker2Name}" - never use IDs or other identifiers.`,
+Cover: the trajectory (momentum shifts, comebacks), the key arguments that made the difference, and why the winner won. Write it as one flowing paragraph. Use only "${speaker1Name}" and "${speaker2Name}" as names.`,
   });
 
-  return object;
+  return { summary: text.trim() };
 }
