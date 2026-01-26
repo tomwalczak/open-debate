@@ -41,8 +41,9 @@ export function QuestionPanel({
     }
   };
 
-  const truncatedStream = streamingText.length > 50
-    ? streamingText.slice(-50).replace(/^\S*\s/, "")
+  // Show last ~3 lines of streaming text (roughly 180 chars at 60 chars/line)
+  const truncatedStream = streamingText.length > 180
+    ? "..." + streamingText.slice(-180).replace(/^\S*\s/, "")
     : streamingText;
 
   return (
@@ -63,14 +64,16 @@ export function QuestionPanel({
 
       {/* Content based on status */}
       {status === "debating" && currentSpeakerId && (
-        <Box marginTop={1}>
-          <Text color={speakerColor} bold>
-            {currentSpeakerName}:{" "}
-          </Text>
-          <Text wrap="wrap">
+        <Box flexDirection="column" marginTop={1}>
+          <Box>
+            <Text color={speakerColor} bold>
+              {currentSpeakerName}:{" "}
+            </Text>
+            {streamingText && <Spinner />}
+          </Box>
+          <Text wrap="wrap" dimColor={!streamingText}>
             {truncatedStream || "thinking..."}
           </Text>
-          {streamingText && <Spinner />}
         </Box>
       )}
 

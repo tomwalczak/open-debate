@@ -13,12 +13,14 @@ export function ProgressBar({ current, total, width = 30, label }: ProgressBarPr
   const filled = Math.round(percentage * width);
   const empty = width - filled;
 
+  const percentDisplay = Math.round(percentage * 100);
+
   return (
     <Box>
       {label && <Text>{label} </Text>}
       <Text color="green">{"█".repeat(filled)}</Text>
       <Text color="gray">{"░".repeat(empty)}</Text>
-      <Text> {current}/{total}</Text>
+      <Text> {percentDisplay}%</Text>
     </Box>
   );
 }
