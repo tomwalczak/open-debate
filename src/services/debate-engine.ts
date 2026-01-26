@@ -67,7 +67,9 @@ async function generateSpeakerResponse(
   const systemPrompt = `${speaker.systemPrompt}
 
 Current debate question: ${question}
-You are in round ${roundNumber} of this debate.`;
+You are in round ${roundNumber} of this debate.
+
+IMPORTANT: Keep your response under 300 words. Be concise and impactful.`;
 
   let fullMessage = "";
 
