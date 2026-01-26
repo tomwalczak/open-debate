@@ -218,6 +218,10 @@ export async function createMatch(
   ensureDir(speaker1Dir);
   ensureDir(speaker2Dir);
 
+  // Use persona for prompt generation, fall back to name if no persona
+  const persona1 = config.speaker1Persona || config.speaker1Name;
+  const persona2 = config.speaker2Persona || config.speaker2Name;
+
   // Build learnings files (the source of truth)
   let learnings1 = `# ${config.speaker1Name} - Learnings\n\n`;
   let learnings2 = `# ${config.speaker2Name} - Learnings\n\n`;
@@ -263,13 +267,14 @@ export async function createMatch(
   fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), learnings2);
 
   // Generate prompts from learnings (single source of truth)
+  // Use full persona for prompt generation if available
   const speaker1Prompt = await generatePromptFromLearnings(
-    config.speaker1Name,
+    persona1,
     learnings1,
     config.modelId
   );
   const speaker2Prompt = await generatePromptFromLearnings(
-    config.speaker2Name,
+    persona2,
     learnings2,
     config.modelId
   );

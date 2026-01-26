@@ -4,6 +4,7 @@ import type { MatchState, QuestionExecutionState } from "../types/debate.js";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionPanel } from "./QuestionPanel.js";
+import { theme } from "../theme.js";
 
 interface MatchViewProps {
   match: MatchState | null;
@@ -60,25 +61,27 @@ export function MatchView({
       {/* Header */}
       <Box
         borderStyle="double"
-        borderColor="cyan"
+        borderColor={theme.accent}
         paddingX={2}
         marginBottom={1}
         flexDirection="column"
       >
         <Box justifyContent="space-between">
           <Text bold>
-            <Text color="blue">{firstSpeaker.name}</Text>
-            <Text> vs </Text>
-            <Text color="magenta">{secondSpeaker.name}</Text>
+            <Text color={theme.speaker1}>{firstSpeaker.name}</Text>
+            <Text dimColor> vs </Text>
+            <Text color={theme.speaker2}>{secondSpeaker.name}</Text>
           </Text>
-          <Text color="yellow">Match: {match.id}</Text>
+          <Text dimColor>{match.id}</Text>
         </Box>
         <Box justifyContent="space-between" marginTop={1}>
-          <Text>
+          <Text dimColor>
             Debate {currentDebate}/{totalDebates}
           </Text>
           <Text>
-            Score: <Text color="blue">{totalS1Wins}</Text> - <Text color="magenta">{totalS2Wins}</Text>
+            <Text color={theme.speaker1}>{totalS1Wins}</Text>
+            <Text dimColor> - </Text>
+            <Text color={theme.speaker2}>{totalS2Wins}</Text>
           </Text>
         </Box>
       </Box>
@@ -108,7 +111,7 @@ export function MatchView({
           {/* Active Questions */}
           {activeQuestions.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
-              <Text bold color="yellow">
+              <Text bold color={theme.accent}>
                 Active ({activeQuestions.length})
               </Text>
               <Box flexDirection="column" marginTop={1}>
@@ -129,14 +132,14 @@ export function MatchView({
           {/* Completed Questions */}
           {completedQuestions.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
-              <Text bold color="green">Completed:</Text>
+              <Text bold color={theme.success}>Completed:</Text>
               <Box flexWrap="wrap" marginTop={1}>
                 {completedQuestions.map((qs, i) => (
                   <Box key={qs.questionIndex} marginRight={2}>
-                    <Text>
+                    <Text dimColor>
                       Q{qs.questionIndex + 1}{" "}
-                      <Text color={qs.verdict?.winnerId === firstSpeaker.id ? "blue" : "magenta"}>
-                        {qs.verdict ? (qs.verdict.winnerId === firstSpeaker.id ? firstSpeaker.name : secondSpeaker.name) : "?"}
+                      <Text color={qs.verdict?.winnerId === firstSpeaker.id ? theme.speaker1 : theme.speaker2}>
+                        🏆 {qs.verdict ? (qs.verdict.winnerId === firstSpeaker.id ? firstSpeaker.name : secondSpeaker.name) : "?"}
                       </Text>
                       {i < completedQuestions.length - 1 ? " |" : ""}
                     </Text>
@@ -150,11 +153,11 @@ export function MatchView({
 
       {/* Previous debate results */}
       {debateResults.length > 0 && (
-        <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-          <Text bold>Previous Debates:</Text>
+        <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor={theme.borderDefault} paddingX={1}>
+          <Text dimColor>Previous Debates:</Text>
           {debateResults.map((result, i) => (
-            <Text key={i}>
-              Debate {i + 1}: <Text color="blue">{firstSpeaker.name} {result.speaker1Wins}</Text> - <Text color="magenta">{result.speaker2Wins} {secondSpeaker.name}</Text>
+            <Text key={i} dimColor>
+              Debate {i + 1}: <Text color={theme.speaker1}>{firstSpeaker.name} {result.speaker1Wins}</Text> - <Text color={theme.speaker2}>{result.speaker2Wins} {secondSpeaker.name}</Text>
             </Text>
           ))}
         </Box>
@@ -162,15 +165,15 @@ export function MatchView({
 
       {/* Match complete */}
       {phase === "complete" && (
-        <Box flexDirection="column" marginTop={1} borderStyle="double" borderColor="green" paddingX={2}>
-          <Text bold color="green">Match Complete!</Text>
+        <Box flexDirection="column" marginTop={1} borderStyle="double" borderColor={theme.success} paddingX={2}>
+          <Text bold color={theme.success}>🏆 Match Complete!</Text>
           <Box marginTop={1}>
             <Text>
-              Final: <Text color="blue">{firstSpeaker.name} {totalS1Wins}</Text> - <Text color="magenta">{totalS2Wins} {secondSpeaker.name}</Text>
+              Final: <Text color={theme.speaker1} bold>{firstSpeaker.name} {totalS1Wins}</Text> - <Text color={theme.speaker2}>{totalS2Wins} {secondSpeaker.name}</Text>
             </Text>
           </Box>
           <Box marginTop={1}>
-            <Text color="gray">Saved to matches/{match.id}/</Text>
+            <Text dimColor>Saved to matches/{match.id}/</Text>
           </Box>
         </Box>
       )}

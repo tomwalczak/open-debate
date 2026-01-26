@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
+import { theme } from "../../theme.js";
 
 interface SettingsInputProps {
   onComplete: (rounds: number, questionCount: number, debateCount: number) => void;
@@ -39,10 +40,10 @@ export function SettingsInput({
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold color="cyan">Match Settings</Text>
+      <Text bold color={theme.accent}>Match Settings</Text>
 
       <Box>
-        <Text color={step === 1 ? "yellow" : "green"}>
+        <Text color={step === 1 ? theme.accent : theme.success}>
           Rounds per question: {step === 1 ? "" : rounds}
         </Text>
         {step === 1 && (
@@ -57,7 +58,7 @@ export function SettingsInput({
 
       {step >= 2 && (
         <Box>
-          <Text color={step === 2 ? "yellow" : "green"}>
+          <Text color={step === 2 ? theme.accent : theme.success}>
             Questions per debate: {step === 2 ? "" : questions}
           </Text>
           {step === 2 && (
@@ -73,7 +74,7 @@ export function SettingsInput({
 
       {step === 3 && (
         <Box>
-          <Text color="yellow">Number of debates: </Text>
+          <Text color={theme.accent}>Number of debates: </Text>
           <TextInput
             value={debates}
             onChange={setDebates}

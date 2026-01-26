@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
+import { theme } from "../../theme.js";
 
 interface SpeakerInputProps {
   onComplete: (speaker1: string, speaker2: string) => void;
@@ -26,10 +27,10 @@ export function SpeakerInput({ onComplete }: SpeakerInputProps) {
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold color="cyan">Who should debate?</Text>
+      <Text bold color={theme.accent}>Who should debate?</Text>
 
       <Box>
-        <Text color={step === 1 ? "yellow" : "green"}>
+        <Text color={step === 1 ? theme.accent : theme.success}>
           Speaker 1: {step === 1 ? "" : speaker1}
         </Text>
         {step === 1 && (
@@ -44,7 +45,7 @@ export function SpeakerInput({ onComplete }: SpeakerInputProps) {
 
       {step === 2 && (
         <Box>
-          <Text color="yellow">Speaker 2: </Text>
+          <Text color={theme.accent}>Speaker 2: </Text>
           <TextInput
             value={speaker2}
             onChange={setSpeaker2}

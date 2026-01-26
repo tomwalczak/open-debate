@@ -5,11 +5,13 @@ import {
   SettingsInput,
   TopicFocusInput,
   QuestionReview,
-  CoachToggle,
+  OptionsToggle,
+  ConfirmStart,
   MatchView,
   Spinner,
 } from "./components/index.js";
 import { runMatch, type MatchCallbacks } from "./services/match-engine.js";
+import { generateDisplayNames } from "./services/name-generator.js";
 import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
@@ -29,6 +31,7 @@ export interface AppProps {
     forkFrom?: string;
     selfImprove?: boolean;
     model?: string;
+    narrate?: boolean;
   };
 }
 
@@ -97,9 +100,14 @@ export function App({ cliArgs }: AppProps) {
 
     const issues = cliArgs.issues?.split(",").map((s) => s.trim()) || [];
 
+    // Generate short display names from potentially long personas (in one call for consistency)
+    const [name1, name2] = await generateDisplayNames(cliArgs.speaker1, cliArgs.speaker2, modelId);
+
     const matchConfig: MatchConfig = {
-      speaker1Name: cliArgs.speaker1,
-      speaker2Name: cliArgs.speaker2,
+      speaker1Name: name1,
+      speaker2Name: name2,
+      speaker1Persona: cliArgs.speaker1,  // Keep full persona for prompt generation
+      speaker2Persona: cliArgs.speaker2,
       totalDebates: cliArgs.debates || 1,
       questionsPerDebate: cliArgs.questions || 5,
       roundsPerQuestion: cliArgs.rounds || 3,
@@ -109,6 +117,7 @@ export function App({ cliArgs }: AppProps) {
       modelId,
       seed1: cliArgs.seed1,
       seed2: cliArgs.seed2,
+      narrate: cliArgs.narrate ?? false,
     };
 
     try {
@@ -119,13 +128,45 @@ export function App({ cliArgs }: AppProps) {
     }
   };
 
-  const handleSpeakers = (speaker1: string, speaker2: string) => {
+  const handleSpeakers = async (speaker1: string, speaker2: string) => {
+    // Generate short display names from potentially long personas (in one call for consistency)
+    const [name1, name2] = await generateDisplayNames(speaker1, speaker2, modelId);
+
     setWizard((prev) => ({
       ...prev,
-      speaker1Name: speaker1,
-      speaker2Name: speaker2,
-      step: "settings",
+      speaker1Name: name1,
+      speaker2Name: name2,
+      speaker1Persona: speaker1,
+      speaker2Persona: speaker2,
+      step: "confirm",
     }));
+  };
+
+  const handleConfirmStart = () => {
+    // Start with defaults
+    setWizard((prev) => ({ ...prev, step: "ready" }));
+
+    const matchConfig: MatchConfig = {
+      speaker1Name: wizard.speaker1Name,
+      speaker2Name: wizard.speaker2Name,
+      speaker1Persona: wizard.speaker1Persona,
+      speaker2Persona: wizard.speaker2Persona,
+      totalDebates: wizard.debateCount,
+      questionsPerDebate: wizard.questionCount,
+      roundsPerQuestion: wizard.roundsPerQuestion,
+      humanCoachEnabled: false,
+      selfImprove: true,
+      modelId,
+      narrate: wizard.narrate,
+    };
+
+    runMatch(matchConfig, callbacks).catch((error) => {
+      console.error("Failed to run match:", error);
+    });
+  };
+
+  const handleEditSettings = () => {
+    setWizard((prev) => ({ ...prev, step: "settings" }));
   };
 
   const handleSettings = (rounds: number, questionCount: number, debateCount: number) => {
@@ -142,27 +183,30 @@ export function App({ cliArgs }: AppProps) {
     setWizard((prev) => ({
       ...prev,
       issueFocus: topics,
-      step: "coach_toggle",
+      step: "options",
     }));
   };
 
-  const handleCoachToggle = async (enabled: boolean) => {
+  const handleOptions = async (narrate: boolean) => {
     setWizard((prev) => ({
       ...prev,
-      humanCoachEnabled: enabled,
+      narrate,
       step: "ready",
     }));
 
     const matchConfig: MatchConfig = {
       speaker1Name: wizard.speaker1Name,
       speaker2Name: wizard.speaker2Name,
+      speaker1Persona: wizard.speaker1Persona,
+      speaker2Persona: wizard.speaker2Persona,
       totalDebates: wizard.debateCount || 1,
       questionsPerDebate: wizard.questionCount,
       roundsPerQuestion: wizard.roundsPerQuestion,
-      humanCoachEnabled: enabled,
+      humanCoachEnabled: false,
       selfImprove: true,
       issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
       modelId,
+      narrate,
     };
 
     try {
@@ -177,14 +221,26 @@ export function App({ cliArgs }: AppProps) {
     return (
       <Box flexDirection="column" padding={1}>
         <Box marginBottom={1}>
-          <Text bold color="cyan">Open Debate</Text>
-          <Text color="gray"> - AI Debate Arena</Text>
+          <Text bold color="white">Open Debate</Text>
+          <Text dimColor> - AI Debate Arena</Text>
         </Box>
 
         {wizard.step === "speakers" && <SpeakerInput onComplete={handleSpeakers} />}
+        {wizard.step === "confirm" && (
+          <ConfirmStart
+            speaker1Name={wizard.speaker1Name}
+            speaker2Name={wizard.speaker2Name}
+            rounds={wizard.roundsPerQuestion}
+            questions={wizard.questionCount}
+            debates={wizard.debateCount}
+            narrate={wizard.narrate}
+            onConfirm={handleConfirmStart}
+            onEdit={handleEditSettings}
+          />
+        )}
         {wizard.step === "settings" && <SettingsInput onComplete={handleSettings} />}
         {wizard.step === "topic_focus" && <TopicFocusInput onComplete={handleTopicFocus} />}
-        {wizard.step === "coach_toggle" && <CoachToggle onComplete={handleCoachToggle} />}
+        {wizard.step === "options" && <OptionsToggle onComplete={handleOptions} />}
       </Box>
     );
   }

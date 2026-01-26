@@ -6,6 +6,7 @@ import { updateAgentAfterDebate } from "./agent-learner.js";
 import { createMatch, saveDebateResult } from "./match-storage.js";
 import { generateQuestions } from "./question-generator.js";
 import { generateId } from "../utils/id.js";
+import { narrateExchange } from "./narrator.js";
 import type { AgentConfig } from "../types/agent.js";
 import type {
   MatchConfig,
@@ -17,6 +18,18 @@ import type {
 } from "../types/debate.js";
 
 const MAX_CONCURRENT_QUESTIONS = 5;
+
+// Calculate reading delay based on text length
+// Fast reading speed: ~6 words per second
+// Short buffer after streaming since user reads while it streams
+function getReadingDelay(text: string): number {
+  const words = text.split(/\s+/).length;
+  const readingTimeMs = (words / 6) * 1000; // 6 words per second
+  // Minimum 1s, maximum 3s - user already read during streaming
+  return Math.min(Math.max(readingTimeMs * 0.3, 1000), 3000);
+}
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export interface MatchCallbacks {
   onMatchStart: (match: MatchState) => void;
@@ -114,7 +127,9 @@ async function executeQuestion(
   firstSpeaker: AgentConfig,
   secondSpeaker: AgentConfig,
   judge: AgentConfig,
-  callbacks: MatchCallbacks
+  callbacks: MatchCallbacks,
+  narrate: boolean,
+  modelId: string
 ): Promise<QuestionResult> {
   const exchanges: Exchange[] = [];
 
@@ -134,7 +149,7 @@ async function executeQuestion(
   for (let round = 1; round <= roundsPerQuestion; round++) {
     questionState = { ...questionState, currentRound: round };
 
-    // First speaker
+    // First speaker - keep previous narratorSummary visible until new narrator starts
     questionState = {
       ...questionState,
       currentSpeakerId: firstSpeaker.id,
@@ -148,12 +163,15 @@ async function executeQuestion(
       exchanges,
       round,
       (chunk) => {
-        questionState = {
-          ...questionState,
-          streamingText: questionState.streamingText + chunk,
-        };
-        callbacks.onQuestionStreamChunk(questionIndex, chunk);
-        callbacks.onQuestionStateChange(questionState);
+        // Only stream raw text when narrator is off
+        if (!narrate) {
+          questionState = {
+            ...questionState,
+            streamingText: questionState.streamingText + chunk,
+          };
+          callbacks.onQuestionStreamChunk(questionIndex, chunk);
+          callbacks.onQuestionStateChange(questionState);
+        }
       }
     );
 
@@ -166,14 +184,52 @@ async function executeQuestion(
       questionIndex,
     };
     exchanges.push(exchange1);
-    questionState = {
-      ...questionState,
-      exchanges: [...exchanges],
-      streamingText: "",
-    };
-    callbacks.onQuestionStateChange(questionState);
 
-    // Second speaker
+    // Generate narrator summary if enabled (streamed)
+    if (narrate) {
+      const previousExchanges = exchanges.slice(0, -1);
+      questionState = {
+        ...questionState,
+        exchanges: [...exchanges],
+        streamingText: "",
+        narratorSummary: undefined, // Clear old summary when new narrator starts
+        isNarratorStreaming: true,
+      };
+      callbacks.onQuestionStateChange(questionState);
+
+      const summary = await narrateExchange(
+        exchange1,
+        question,
+        modelId,
+        previousExchanges,
+        (chunk) => {
+          questionState = {
+            ...questionState,
+            streamingText: questionState.streamingText + chunk,
+          };
+          callbacks.onQuestionStateChange(questionState);
+        }
+      );
+      questionState = {
+        ...questionState,
+        streamingText: "",
+        narratorSummary: summary,
+        isNarratorStreaming: false,
+      };
+      callbacks.onQuestionStateChange(questionState);
+
+      // Give user time to read the summary
+      await delay(getReadingDelay(summary));
+    } else {
+      questionState = {
+        ...questionState,
+        exchanges: [...exchanges],
+        streamingText: "",
+      };
+      callbacks.onQuestionStateChange(questionState);
+    }
+
+    // Second speaker - keep previous narratorSummary visible until new narrator starts
     questionState = {
       ...questionState,
       currentSpeakerId: secondSpeaker.id,
@@ -187,12 +243,15 @@ async function executeQuestion(
       exchanges,
       round,
       (chunk) => {
-        questionState = {
-          ...questionState,
-          streamingText: questionState.streamingText + chunk,
-        };
-        callbacks.onQuestionStreamChunk(questionIndex, chunk);
-        callbacks.onQuestionStateChange(questionState);
+        // Only stream raw text when narrator is off
+        if (!narrate) {
+          questionState = {
+            ...questionState,
+            streamingText: questionState.streamingText + chunk,
+          };
+          callbacks.onQuestionStreamChunk(questionIndex, chunk);
+          callbacks.onQuestionStateChange(questionState);
+        }
       }
     );
 
@@ -205,12 +264,50 @@ async function executeQuestion(
       questionIndex,
     };
     exchanges.push(exchange2);
-    questionState = {
-      ...questionState,
-      exchanges: [...exchanges],
-      streamingText: "",
-    };
-    callbacks.onQuestionStateChange(questionState);
+
+    // Generate narrator summary if enabled (streamed)
+    if (narrate) {
+      const previousExchanges = exchanges.slice(0, -1);
+      questionState = {
+        ...questionState,
+        exchanges: [...exchanges],
+        streamingText: "",
+        narratorSummary: undefined, // Clear old summary when new narrator starts
+        isNarratorStreaming: true,
+      };
+      callbacks.onQuestionStateChange(questionState);
+
+      const summary = await narrateExchange(
+        exchange2,
+        question,
+        modelId,
+        previousExchanges,
+        (chunk) => {
+          questionState = {
+            ...questionState,
+            streamingText: questionState.streamingText + chunk,
+          };
+          callbacks.onQuestionStateChange(questionState);
+        }
+      );
+      questionState = {
+        ...questionState,
+        streamingText: "",
+        narratorSummary: summary,
+        isNarratorStreaming: false,
+      };
+      callbacks.onQuestionStateChange(questionState);
+
+      // Give user time to read the summary
+      await delay(getReadingDelay(summary));
+    } else {
+      questionState = {
+        ...questionState,
+        exchanges: [...exchanges],
+        streamingText: "",
+      };
+      callbacks.onQuestionStateChange(questionState);
+    }
   }
 
   // Judge this question
@@ -268,7 +365,9 @@ async function runSingleDebate(
         goesFirst,
         goesSecond,
         judge,
-        callbacks
+        callbacks,
+        config.narrate ?? false,
+        config.modelId
       )
     );
   });
@@ -314,6 +413,8 @@ export async function runMatch(
       const questions = await generateQuestions({
         speaker1Name: config.speaker1Name,
         speaker2Name: config.speaker2Name,
+        speaker1Persona: config.speaker1Persona,
+        speaker2Persona: config.speaker2Persona,
         count: config.questionsPerDebate,
         issueFocus: config.issueFocus || [],
         modelId: config.modelId,

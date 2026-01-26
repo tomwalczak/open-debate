@@ -9,6 +9,8 @@ const questionsSchema = z.object({
 export interface QuestionGeneratorOptions {
   speaker1Name: string;
   speaker2Name: string;
+  speaker1Persona?: string;  // Full persona description
+  speaker2Persona?: string;  // Full persona description
   count: number;
   issueFocus?: string[];
   existingQuestions?: string[];
@@ -22,6 +24,8 @@ export async function generateQuestions(
   const {
     speaker1Name,
     speaker2Name,
+    speaker1Persona,
+    speaker2Persona,
     count,
     issueFocus = [],
     existingQuestions = [],
@@ -29,18 +33,27 @@ export async function generateQuestions(
     modelId = DEFAULT_MODEL_ID,
   } = options;
 
-  let prompt = `Generate ${count} propositional debate questions for a debate between "${speaker1Name}" and "${speaker2Name}".
+  // Use persona if provided, otherwise just the name
+  const speaker1Desc = speaker1Persona || speaker1Name;
+  const speaker2Desc = speaker2Persona || speaker2Name;
+
+  let prompt = `Generate ${count} propositional debate questions for a debate between two speakers.
+
+Speaker 1: ${speaker1Desc}
+Speaker 2: ${speaker2Desc}
 
 Requirements:
 - Each question should be a clear proposition that can be argued for or against
-- Questions should be relevant to the speakers' known perspectives or expertise
+- Questions should be relevant to the speakers' perspectives as described above
+- If a speaker is a well-known public figure, also consider their known public positions
+- Questions must be NEUTRAL - never mention the speakers by name in the question text
 - Questions should be thought-provoking and allow for substantive debate
 - Format as "should" statements (e.g., "Nuclear power should replace coal") or assertions (e.g., "Climate change poses an existential threat to humanity")
 - Avoid yes/no questions
-- Cover maximum surface area across different angles and sub-topics, so audiences can assess relative strengths and weaknesses of each side`;
+- Cover diverse angles and sub-topics`;
 
   if (issueFocus.length > 0) {
-    prompt += `\n\nFocus areas to emphasize: ${issueFocus.join(", ")}`;
+    prompt += `\n\nFocus areas: ${issueFocus.join(", ")}`;
   }
 
   if (existingQuestions.length > 0) {

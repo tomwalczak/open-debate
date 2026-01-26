@@ -27,6 +27,7 @@ Options:
   --self-improve            Enable agent self-improvement (default: on)
   --no-self-improve         Disable agent self-improvement
   --model <model>           Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
+  --narrate                 Enable real-time narrator commentary (summarizes each argument)
   --help                    Show this help message
 
 Environment:
@@ -62,6 +63,7 @@ interface CliArgs {
   forkFrom?: string;
   selfImprove?: boolean;
   model?: string;
+  narrate?: boolean;
 }
 
 function parseArgs(rawArgs: string[]): CliArgs {
@@ -126,6 +128,9 @@ function parseArgs(rawArgs: string[]): CliArgs {
       case "--model":
         result.model = nextArg;
         i++;
+        break;
+      case "--narrate":
+        result.narrate = true;
         break;
     }
   }

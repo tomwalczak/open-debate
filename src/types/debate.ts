@@ -3,8 +3,10 @@ import type { JudgeVerdict, FinalTally } from "./judge.js";
 
 // Match = series of debates between two speakers
 export interface MatchConfig {
-  speaker1Name: string;
-  speaker2Name: string;
+  speaker1Name: string;  // Display name (short, for UI)
+  speaker2Name: string;  // Display name (short, for UI)
+  speaker1Persona?: string;  // Full persona description (for prompt generation)
+  speaker2Persona?: string;  // Full persona description (for prompt generation)
   totalDebates: number;
   questionsPerDebate: number;
   roundsPerQuestion: number;
@@ -14,6 +16,7 @@ export interface MatchConfig {
   modelId: string;
   seed1?: string;  // User instructions for speaker 1's initial prompt
   seed2?: string;  // User instructions for speaker 2's initial prompt
+  narrate?: boolean;  // Enable real-time narrator commentary
 }
 
 export interface MatchState {
@@ -44,6 +47,8 @@ export interface QuestionExecutionState {
   exchanges: Exchange[];
   streamingText: string;
   verdict: JudgeVerdict | null;
+  narratorSummary?: string;  // Current summary being displayed
+  isNarratorStreaming?: boolean;  // True when narrator is actively streaming
 }
 
 export interface Exchange {
@@ -99,26 +104,31 @@ export interface DebateState {
 export interface WizardState {
   step:
     | "speakers"
-    | "settings"
+    | "confirm"      // Quick start confirmation
+    | "settings"     // Only if user chooses to edit
     | "topic_focus"
-    | "coach_toggle"
+    | "options"
     | "ready";
-  speaker1Name: string;
-  speaker2Name: string;
+  speaker1Name: string;  // Display name (short)
+  speaker2Name: string;  // Display name (short)
+  speaker1Persona: string;  // Full persona description
+  speaker2Persona: string;  // Full persona description
   roundsPerQuestion: number;
   questionCount: number;
   debateCount: number;
   issueFocus: string[];
-  humanCoachEnabled: boolean;
+  narrate: boolean;
 }
 
 export const DEFAULT_WIZARD_STATE: WizardState = {
   step: "speakers",
   speaker1Name: "",
   speaker2Name: "",
+  speaker1Persona: "",
+  speaker2Persona: "",
   roundsPerQuestion: 3,
   questionCount: 5,
   debateCount: 1,
   issueFocus: [],
-  humanCoachEnabled: false,
+  narrate: true, // Default to narrator on
 };

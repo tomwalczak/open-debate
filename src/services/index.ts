@@ -12,3 +12,4 @@ export {
   generatePromptFromLearnings,
 } from "./match-storage.js";
 export { runMatch, type MatchCallbacks } from "./match-engine.js";
+export { narrateExchange } from "./narrator.js";

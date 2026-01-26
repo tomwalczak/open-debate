@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
+import { theme } from "../../theme.js";
 
 interface TopicFocusInputProps {
   onComplete: (topics: string[]) => void;
@@ -23,10 +24,10 @@ export function TopicFocusInput({ onComplete }: TopicFocusInputProps) {
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Text bold color="cyan">Topic Focus (optional)</Text>
+      <Text bold color={theme.accent}>Topic Focus (optional)</Text>
 
       <Box>
-        <Text color="yellow">Focus areas: </Text>
+        <Text color={theme.accent}>Focus areas: </Text>
         <TextInput
           value={input}
           onChange={setInput}
