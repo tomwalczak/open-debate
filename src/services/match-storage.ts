@@ -1,5 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
+import { generateText } from "ai";
+import { getModel } from "./openrouter.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { MatchConfig, MatchState, DebateResult, QuestionResult } from "../types/debate.js";
 import type { FinalTally } from "../types/judge.js";
@@ -26,8 +28,28 @@ function getRandomElement<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function generateMatchId(): string {
-  return `${getRandomElement(ADJECTIVES)}-${getRandomElement(NOUNS)}`;
+function formatDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateShort(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const year = String(now.getFullYear()).slice(-2);
+  return `${month}-${day}-${year}`;
+}
+
+function generateMatchId(speaker1Name: string, speaker2Name: string): string {
+  const date = formatDate();
+  const s1 = nameToSlug(speaker1Name).split("-")[0]; // First word only
+  const s2 = nameToSlug(speaker2Name).split("-")[0];
+  const adjNoun = `${getRandomElement(ADJECTIVES)}-${getRandomElement(NOUNS)}`;
+  return `${date}-${s1}-vs-${s2}-${adjNoun}`;
 }
 
 function nameToSlug(name: string): string {
@@ -43,41 +65,78 @@ function ensureDir(dirPath: string): void {
   }
 }
 
-export function createMatch(
+async function generateSeededPrompt(
+  name: string,
+  seed: string,
+  modelId: string
+): Promise<string> {
+  const { text } = await generateText({
+    model: getModel(modelId),
+    prompt: `You are creating a system prompt for "${name}" who will participate in public debates.
+
+User's instructions for this debater:
+${seed}
+
+Generate a focused system prompt (under 2000 characters) that:
+- Embodies ${name}'s perspective and expertise
+- Incorporates the user's specific instructions above
+- Provides clear debate strategy and approach
+- Ends with: "Be concise. Keep your response under 300 words."
+
+Output ONLY the system prompt, nothing else.`,
+  });
+
+  return text.trim();
+}
+
+export async function createMatch(
   config: MatchConfig,
   forkFromMatchId?: string
-): MatchState {
-  const matchId = generateMatchId();
+): Promise<MatchState> {
+  const matchId = generateMatchId(config.speaker1Name, config.speaker2Name);
   const matchDir = path.join(MATCHES_DIR, matchId);
   const agentsDir = path.join(matchDir, "agents");
+  const dateShort = formatDateShort();
 
   ensureDir(matchDir);
   ensureDir(agentsDir);
 
-  // Create agent directories
+  // Create agent directories with match name and date
   const speaker1Slug = nameToSlug(config.speaker1Name);
   const speaker2Slug = nameToSlug(config.speaker2Name);
+  // Extract adj-noun from end of matchId (e.g., "2026-01-26-alex-vs-al-swift-hawk" -> "swift-hawk")
+  const parts = matchId.split("-");
+  const matchSuffix = parts.slice(-2).join("-");
 
-  const speaker1Dir = path.join(agentsDir, speaker1Slug);
-  const speaker2Dir = path.join(agentsDir, speaker2Slug);
+  const speaker1Dir = path.join(agentsDir, `${speaker1Slug}-${dateShort}-${matchSuffix}`);
+  const speaker2Dir = path.join(agentsDir, `${speaker2Slug}-${dateShort}-${matchSuffix}`);
 
   ensureDir(speaker1Dir);
   ensureDir(speaker2Dir);
 
-  // Get prompts (fork from existing match or use initial)
+  // Get prompts (fork, seed, or default)
   let speaker1Prompt: string;
   let speaker2Prompt: string;
 
   if (forkFromMatchId) {
-    const sourceMatch = path.join(MATCHES_DIR, forkFromMatchId, "agents");
-    const sourceSpeaker1 = path.join(sourceMatch, speaker1Slug, "prompt.md");
-    const sourceSpeaker2 = path.join(sourceMatch, speaker2Slug, "prompt.md");
+    // Fork from existing match - find agent dirs by slug prefix
+    const sourceAgentsDir = path.join(MATCHES_DIR, forkFromMatchId, "agents");
+    const sourceSpeaker1Dir = findAgentDirBySlug(sourceAgentsDir, speaker1Slug);
+    const sourceSpeaker2Dir = findAgentDirBySlug(sourceAgentsDir, speaker2Slug);
 
-    speaker1Prompt = fs.existsSync(sourceSpeaker1)
-      ? fs.readFileSync(sourceSpeaker1, "utf-8")
+    speaker1Prompt = sourceSpeaker1Dir
+      ? fs.readFileSync(path.join(sourceSpeaker1Dir, "prompt.md"), "utf-8")
       : generateInitialPrompt(config.speaker1Name);
-    speaker2Prompt = fs.existsSync(sourceSpeaker2)
-      ? fs.readFileSync(sourceSpeaker2, "utf-8")
+    speaker2Prompt = sourceSpeaker2Dir
+      ? fs.readFileSync(path.join(sourceSpeaker2Dir, "prompt.md"), "utf-8")
+      : generateInitialPrompt(config.speaker2Name);
+  } else if (config.seed1 || config.seed2) {
+    // Generate prompts from seeds
+    speaker1Prompt = config.seed1
+      ? await generateSeededPrompt(config.speaker1Name, config.seed1, config.modelId)
+      : generateInitialPrompt(config.speaker1Name);
+    speaker2Prompt = config.seed2
+      ? await generateSeededPrompt(config.speaker2Name, config.seed2, config.modelId)
       : generateInitialPrompt(config.speaker2Name);
   } else {
     speaker1Prompt = generateInitialPrompt(config.speaker1Name);
@@ -88,9 +147,18 @@ export function createMatch(
   fs.writeFileSync(path.join(speaker1Dir, "prompt.md"), speaker1Prompt);
   fs.writeFileSync(path.join(speaker2Dir, "prompt.md"), speaker2Prompt);
 
-  // Create empty learnings files
-  fs.writeFileSync(path.join(speaker1Dir, "learnings.md"), `# ${config.speaker1Name} - Learnings\n\n`);
-  fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), `# ${config.speaker2Name} - Learnings\n\n`);
+  // Create learnings files with user seed at top if provided
+  let learnings1 = `# ${config.speaker1Name} - Learnings\n\n`;
+  if (config.seed1) {
+    learnings1 += `## User Intent\n\n> ${config.seed1}\n\n---\n\n`;
+  }
+  fs.writeFileSync(path.join(speaker1Dir, "learnings.md"), learnings1);
+
+  let learnings2 = `# ${config.speaker2Name} - Learnings\n\n`;
+  if (config.seed2) {
+    learnings2 += `## User Intent\n\n> ${config.seed2}\n\n---\n\n`;
+  }
+  fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), learnings2);
 
   // Create agent configs
   const firstSpeaker: AgentConfig = {
@@ -126,6 +194,13 @@ export function createMatch(
   );
 
   return matchState;
+}
+
+function findAgentDirBySlug(agentsDir: string, slug: string): string | null {
+  if (!fs.existsSync(agentsDir)) return null;
+  const entries = fs.readdirSync(agentsDir);
+  const match = entries.find((e) => e.startsWith(slug + "-"));
+  return match ? path.join(agentsDir, match) : null;
 }
 
 export function saveDebateResult(

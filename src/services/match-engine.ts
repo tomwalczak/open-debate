@@ -302,8 +302,8 @@ export async function runMatch(
   callbacks: MatchCallbacks,
   forkFromMatchId?: string
 ): Promise<MatchState> {
-  // Create match
-  const match = createMatch(config, forkFromMatchId);
+  // Create match (async if seeds need to be generated)
+  const match = await createMatch(config, forkFromMatchId);
   callbacks.onMatchStart(match);
 
   try {

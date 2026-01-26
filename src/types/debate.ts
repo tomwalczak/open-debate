@@ -12,6 +12,8 @@ export interface MatchConfig {
   selfImprove: boolean;
   issueFocus?: string[];
   modelId: string;
+  seed1?: string;  // User instructions for speaker 1's initial prompt
+  seed2?: string;  // User instructions for speaker 2's initial prompt
 }
 
 export interface MatchState {

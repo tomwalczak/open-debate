@@ -14,6 +14,8 @@ Usage:
 Options:
   --speaker1 <name>         First speaker name or persona
   --speaker2 <name>         Second speaker name or persona
+  --seed1 <instructions>    Instructions for generating speaker1's initial prompt
+  --seed2 <instructions>    Instructions for generating speaker2's initial prompt
   --rounds <number>         Rounds per question (default: 3)
   --questions <number>      Number of debate questions (default: 5)
   --issues <topics>         Comma-separated focus topics
@@ -48,6 +50,8 @@ import { App } from "./app.js";
 interface CliArgs {
   speaker1?: string;
   speaker2?: string;
+  seed1?: string;
+  seed2?: string;
   rounds?: number;
   questions?: number;
   issues?: string;
@@ -73,6 +77,14 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--speaker2":
         result.speaker2 = nextArg;
+        i++;
+        break;
+      case "--seed1":
+        result.seed1 = nextArg;
+        i++;
+        break;
+      case "--seed2":
+        result.seed2 = nextArg;
         i++;
         break;
       case "--rounds":

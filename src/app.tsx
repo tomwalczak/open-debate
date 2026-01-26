@@ -19,6 +19,8 @@ export interface AppProps {
   cliArgs?: {
     speaker1?: string;
     speaker2?: string;
+    seed1?: string;
+    seed2?: string;
     rounds?: number;
     questions?: number;
     issues?: string;
@@ -112,6 +114,8 @@ export function App({ cliArgs }: AppProps) {
       selfImprove: cliArgs.selfImprove ?? false,
       issueFocus: issues.length > 0 ? issues : undefined,
       modelId,
+      seed1: cliArgs.seed1,
+      seed2: cliArgs.seed2,
     };
 
     try {
