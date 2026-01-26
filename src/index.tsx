@@ -24,7 +24,8 @@ Options:
   --debates <number>        Number of debates to run
   --autopilot               Run debates without human intervention
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
-  --self-improve            Enable agent self-improvement (update prompts after debates)
+  --self-improve            Enable agent self-improvement (default: on)
+  --no-self-improve         Disable agent self-improvement
   --model <model>           Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
   --help                    Show this help message
 
@@ -118,6 +119,9 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--self-improve":
         result.selfImprove = true;
+        break;
+      case "--no-self-improve":
+        result.selfImprove = false;
         break;
       case "--model":
         result.model = nextArg;

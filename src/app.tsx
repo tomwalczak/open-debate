@@ -104,7 +104,7 @@ export function App({ cliArgs }: AppProps) {
       questionsPerDebate: cliArgs.questions || 5,
       roundsPerQuestion: cliArgs.rounds || 3,
       humanCoachEnabled: cliArgs.humanCoach ?? false,
-      selfImprove: cliArgs.selfImprove ?? false,
+      selfImprove: cliArgs.selfImprove ?? true,
       issueFocus: issues.length > 0 ? issues : undefined,
       modelId,
       seed1: cliArgs.seed1,
@@ -160,7 +160,7 @@ export function App({ cliArgs }: AppProps) {
       questionsPerDebate: wizard.questionCount,
       roundsPerQuestion: wizard.roundsPerQuestion,
       humanCoachEnabled: enabled,
-      selfImprove: false,
+      selfImprove: true,
       issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
       modelId,
     };
