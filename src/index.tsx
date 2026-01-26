@@ -22,6 +22,7 @@ Options:
   --debates, -d <number>    Number of debates to run
   --autopilot, -a           Run debates without human intervention
   --fork, -f                Fork agents from existing ones (use their evolved prompts)
+  --self-improve            Enable agent self-improvement (update prompts after debates)
   --model, -m <model>       Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
   --help, -h                Show this help message
 
@@ -54,6 +55,7 @@ interface CliArgs {
   debates?: number;
   autopilot?: boolean;
   fork?: boolean;
+  selfImprove?: boolean;
   model?: string;
 }
 
@@ -109,6 +111,9 @@ function parseArgs(rawArgs: string[]): CliArgs {
       case "--fork":
       case "-f":
         result.fork = true;
+        break;
+      case "--self-improve":
+        result.selfImprove = true;
         break;
       case "--model":
       case "-m":

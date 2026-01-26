@@ -33,6 +33,7 @@ export interface AppProps {
     debates?: number;
     autopilot?: boolean;
     fork?: boolean;
+    selfImprove?: boolean;
     model?: string;
   };
 }
@@ -136,7 +137,7 @@ export function App({ cliArgs }: AppProps) {
       setIsLoading(false);
 
       // Run the debate in parallel
-      const finalState = await runParallelDebate(initialState, callbacks);
+      const finalState = await runParallelDebate(initialState, callbacks, cliArgs?.selfImprove ?? false);
 
       // If autopilot and more debates remaining, start another
       if (cliArgs?.autopilot && debatesRemaining > 1) {
@@ -233,7 +234,7 @@ export function App({ cliArgs }: AppProps) {
 
   const handleHumanFeedback = async (feedback: string) => {
     if (activeDebate) {
-      await completeParallelDebateWithHumanFeedback(activeDebate, feedback, callbacks);
+      await completeParallelDebateWithHumanFeedback(activeDebate, feedback, callbacks, cliArgs?.selfImprove ?? false);
     }
   };
 

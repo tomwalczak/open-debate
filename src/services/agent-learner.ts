@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { getModel } from "./openrouter.js";
-import { saveAgentPrompt, appendAgentLog, readAgentLog } from "./agent-storage.js";
+import { saveAgentPrompt, appendAgentLearnings, readAgentLearnings } from "./agent-storage.js";
 import { PROMPT_MAX_LENGTH } from "../types/agent.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { QuestionResult } from "../types/debate.js";
@@ -138,7 +138,8 @@ export async function updateAgentAfterDebate(
   debateResults: QuestionResult[],
   opponent: AgentConfig,
   modelId: string,
-  humanFeedback?: string
+  humanFeedback?: string,
+  selfImprove: boolean = false
 ): Promise<void> {
   // Skip learning for judge agents (they have no dirPath)
   if (!agent.dirPath) {
@@ -148,7 +149,7 @@ export async function updateAgentAfterDebate(
   // Generate self-analysis
   const analysis = await generateSelfAnalysis(agent, debateResults, modelId);
 
-  // Create log entry with analysis
+  // Create learnings entry with analysis
   const date = formatDate();
   const resultsText = debateResults
     .map((qr, i) => {
@@ -176,16 +177,14 @@ ${resultsText}
 "${humanFeedback}"`;
   }
 
-  // Append to log
-  appendAgentLog(agent, entry);
+  // Always append learnings
+  appendAgentLearnings(agent, entry);
 
-  // Read full log for prompt generation
-  const fullLog = readAgentLog(agent);
-
-  // Generate updated prompt
-  const newPrompt = await generateUpdatedPrompt(agent, fullLog, modelId);
-
-  // Update agent and save
-  agent.systemPrompt = newPrompt;
-  saveAgentPrompt(agent);
+  // Only update prompt if self-improve is enabled
+  if (selfImprove) {
+    const fullLearnings = readAgentLearnings(agent);
+    const newPrompt = await generateUpdatedPrompt(agent, fullLearnings, modelId);
+    agent.systemPrompt = newPrompt;
+    saveAgentPrompt(agent);
+  }
 }

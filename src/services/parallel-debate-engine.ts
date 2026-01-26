@@ -273,7 +273,8 @@ export function initializeParallelDebate(
 
 export async function runParallelDebate(
   state: DebateState,
-  callbacks: ParallelDebateCallbacks
+  callbacks: ParallelDebateCallbacks,
+  selfImprove: boolean = false
 ): Promise<DebateState> {
   let currentState = { ...state };
   currentState.currentPhase = "debating";
@@ -333,13 +334,17 @@ export async function runParallelDebate(
           firstSpeaker,
           currentState.questionResults,
           secondSpeaker,
-          firstSpeaker.modelId
+          firstSpeaker.modelId,
+          undefined,
+          selfImprove
         ),
         updateAgentAfterDebate(
           secondSpeaker,
           currentState.questionResults,
           firstSpeaker,
-          secondSpeaker.modelId
+          secondSpeaker.modelId,
+          undefined,
+          selfImprove
         ),
       ]);
     } catch (error) {
@@ -357,7 +362,8 @@ export async function runParallelDebate(
 export async function completeParallelDebateWithHumanFeedback(
   state: DebateState,
   humanFeedback: string,
-  callbacks: ParallelDebateCallbacks
+  callbacks: ParallelDebateCallbacks,
+  selfImprove: boolean = false
 ): Promise<DebateState> {
   let currentState: DebateState = {
     ...state,
@@ -376,14 +382,16 @@ export async function completeParallelDebateWithHumanFeedback(
         questionResults,
         secondSpeaker,
         firstSpeaker.modelId,
-        humanFeedback
+        humanFeedback,
+        selfImprove
       ),
       updateAgentAfterDebate(
         secondSpeaker,
         questionResults,
         firstSpeaker,
         secondSpeaker.modelId,
-        humanFeedback
+        humanFeedback,
+        selfImprove
       ),
     ]);
   } catch (error) {

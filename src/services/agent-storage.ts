@@ -55,8 +55,8 @@ function getPromptPath(dirPath: string): string {
   return path.join(dirPath, "prompt.md");
 }
 
-function getLogPath(dirPath: string): string {
-  return path.join(dirPath, "log.md");
+function getLearningsPath(dirPath: string): string {
+  return path.join(dirPath, "learnings.md");
 }
 
 function findExistingAgentDir(baseName: string): string | null {
@@ -113,8 +113,8 @@ export function createAgent(
   fs.mkdirSync(dirPath, { recursive: true });
   fs.writeFileSync(getPromptPath(dirPath), systemPrompt);
 
-  // Create empty log file
-  fs.writeFileSync(getLogPath(dirPath), `# ${name} - Debate Log\n\n`);
+  // Create empty learnings file
+  fs.writeFileSync(getLearningsPath(dirPath), `# ${name} - Learnings\n\n`);
 
   return {
     id: generateId(),
@@ -130,15 +130,15 @@ export function saveAgentPrompt(agent: AgentConfig): void {
   fs.writeFileSync(promptPath, agent.systemPrompt);
 }
 
-export function appendAgentLog(agent: AgentConfig, entry: string): void {
-  const logPath = getLogPath(agent.dirPath);
-  fs.appendFileSync(logPath, entry + "\n\n");
+export function appendAgentLearnings(agent: AgentConfig, entry: string): void {
+  const learningsPath = getLearningsPath(agent.dirPath);
+  fs.appendFileSync(learningsPath, entry + "\n\n");
 }
 
-export function readAgentLog(agent: AgentConfig): string {
-  const logPath = getLogPath(agent.dirPath);
-  if (!fs.existsSync(logPath)) {
+export function readAgentLearnings(agent: AgentConfig): string {
+  const learningsPath = getLearningsPath(agent.dirPath);
+  if (!fs.existsSync(learningsPath)) {
     return "";
   }
-  return fs.readFileSync(logPath, "utf-8");
+  return fs.readFileSync(learningsPath, "utf-8");
 }
