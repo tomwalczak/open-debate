@@ -69,7 +69,7 @@ async function generateSpeakerResponse(
 Current debate question: ${question}
 You are in round ${roundNumber} of this debate.
 
-Be concise.`;
+Be concise. Keep your response under 300 words.`;
 
   let fullMessage = "";
 

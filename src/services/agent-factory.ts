@@ -5,7 +5,7 @@ import { generateId } from "../utils/id.js";
 export function generateInitialPrompt(name: string): string {
   return `You are ${name}. You are participating in a public debate.
 
-Be concise.`;
+Be concise. Keep your response under 300 words.`;
 }
 
 export function createJudgeAgent(modelId: string = DEFAULT_MODEL_ID): AgentConfig {
