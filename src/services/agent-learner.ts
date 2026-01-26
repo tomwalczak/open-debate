@@ -1,7 +1,6 @@
 import { generateText } from "ai";
 import { getModel } from "./openrouter.js";
-import { saveAgentPrompt, appendAgentLearnings, readAgentLearnings } from "./match-storage.js";
-import { PROMPT_MAX_LENGTH } from "../types/agent.js";
+import { saveAgentPrompt, appendAgentLearnings, readAgentLearnings, generatePromptFromLearnings } from "./match-storage.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { QuestionResult } from "../types/debate.js";
 
@@ -87,52 +86,6 @@ Be specific and concise (under 100 characters each).`,
   };
 }
 
-async function generateUpdatedPrompt(
-  agent: AgentConfig,
-  log: string,
-  modelId: string,
-  retryCount: number = 0,
-  overageChars?: number
-): Promise<string> {
-  const overageNote = overageChars
-    ? `\n\nYour previous attempt was ${overageChars} characters over the limit. Be more concise this time.`
-    : "";
-
-  const { text } = await generateText({
-    model: getModel(modelId),
-    prompt: `You are ${agent.name}. Review your debate log and update your system prompt.
-
-Current prompt:
-${agent.systemPrompt}
-
-Your debate log:
-${log}
-
-Generate an improved system prompt that:
-- Incorporates lessons from your wins and losses
-- Addresses weaknesses identified by judges
-- Integrates any human feedback
-- Maintains your core perspective and expertise
-- Is under ${PROMPT_MAX_LENGTH} characters
-${overageNote}
-
-Output ONLY the new system prompt, nothing else.`,
-  });
-
-  const newPrompt = text.trim();
-
-  if (newPrompt.length > PROMPT_MAX_LENGTH) {
-    if (retryCount >= 3) {
-      // After 3 retries, truncate
-      return newPrompt.slice(0, PROMPT_MAX_LENGTH - 100) + "\n\n[Truncated to fit limit]";
-    }
-    const overage = newPrompt.length - PROMPT_MAX_LENGTH;
-    return generateUpdatedPrompt(agent, log, modelId, retryCount + 1, overage);
-  }
-
-  return newPrompt;
-}
-
 export async function updateAgentAfterDebate(
   agent: AgentConfig,
   debateResults: QuestionResult[],
@@ -183,7 +136,8 @@ ${resultsText}
   // Only update prompt if self-improve is enabled
   if (selfImprove) {
     const fullLearnings = readAgentLearnings(agent);
-    const newPrompt = await generateUpdatedPrompt(agent, fullLearnings, modelId);
+    // Use unified prompt generation from learnings (respects Strategic Brief)
+    const newPrompt = await generatePromptFromLearnings(agent.name, fullLearnings, modelId);
     agent.systemPrompt = newPrompt;
     saveAgentPrompt(agent);
   }

@@ -65,28 +65,109 @@ function ensureDir(dirPath: string): void {
   }
 }
 
-async function generateSeededPrompt(
+import { PROMPT_MAX_LENGTH } from "../types/agent.js";
+
+/**
+ * Generates a debate prompt from learnings.md content.
+ * This is the single source of truth for prompt generation.
+ *
+ * Handles:
+ * - Fresh agents (no learnings) → basic prompt
+ * - Seeded agents (Strategic Brief only) → prompt from brief
+ * - Evolved agents (Strategic Brief + debate history) → refined prompt
+ * - Forked agents (copied learnings) → prompt from inherited history
+ */
+export async function generatePromptFromLearnings(
   name: string,
-  seed: string,
-  modelId: string
+  learnings: string,
+  modelId: string,
+  retryCount: number = 0,
+  overageChars?: number
 ): Promise<string> {
+  // Check if there's meaningful content beyond just the header
+  const hasContent = learnings.includes("<strategic-brief>") ||
+                     learnings.includes("## ") && !learnings.match(/^# .+ - Learnings\s*$/m);
+
+  if (!hasContent || learnings.trim().split("\n").length <= 2) {
+    // No meaningful learnings - generate basic prompt
+    return generateInitialPrompt(name);
+  }
+
+  const overageNote = overageChars
+    ? `\n\nYour previous attempt was ${overageChars} characters over the limit. Be more concise this time.`
+    : "";
+
+  // Check for Strategic Brief
+  const hasStrategicBrief = learnings.includes("<strategic-brief>");
+
+  const strategicBriefInstruction = hasStrategicBrief
+    ? `
+IMPORTANT: This agent has a <strategic-brief> section. This contains the operator's core instructions
+for how this debater should approach arguments. Treat the Strategic Brief as the PRIMARY directive -
+all learned behaviors from debate history should REFINE and SUPPORT the Strategic Brief, never override it.
+`
+    : "";
+
   const { text } = await generateText({
     model: getModel(modelId),
     prompt: `You are creating a system prompt for "${name}" who will participate in public debates.
 
-User's instructions for this debater:
-${seed}
+Here is this agent's learnings file (containing their Strategic Brief and/or debate history):
 
-Generate a focused system prompt (under 2000 characters) that:
+${learnings}
+${strategicBriefInstruction}
+Generate a focused system prompt (under ${PROMPT_MAX_LENGTH} characters) that:
 - Embodies ${name}'s perspective and expertise
-- Incorporates the user's specific instructions above
-- Provides clear debate strategy and approach
+- If a Strategic Brief exists: treat it as the core directive that shapes all strategy
+- If debate history exists: incorporate lessons from wins/losses to refine tactics
+- Provides clear, actionable debate strategy
 - Ends with: "Be concise. Keep your response under 300 words."
-
+${overageNote}
 Output ONLY the system prompt, nothing else.`,
   });
 
-  return text.trim();
+  const newPrompt = text.trim();
+
+  if (newPrompt.length > PROMPT_MAX_LENGTH) {
+    if (retryCount >= 3) {
+      return newPrompt.slice(0, PROMPT_MAX_LENGTH - 100) + "\n\n[Truncated to fit limit]";
+    }
+    const overage = newPrompt.length - PROMPT_MAX_LENGTH;
+    return generatePromptFromLearnings(name, learnings, modelId, retryCount + 1, overage);
+  }
+
+  return newPrompt;
+}
+
+function formatStrategicBrief(seed: string): string {
+  return `## Strategic Brief
+
+<strategic-brief priority="high">
+${seed}
+</strategic-brief>
+
+---
+
+`;
+}
+
+function replaceStrategicBrief(learnings: string, name: string, newSeed: string): string {
+  // Remove existing Strategic Brief section if present
+  const briefRegex = /## Strategic Brief\s*\n\s*<strategic-brief[^>]*>[\s\S]*?<\/strategic-brief>\s*\n---\s*\n*/;
+
+  if (briefRegex.test(learnings)) {
+    // Replace existing Strategic Brief
+    return learnings.replace(briefRegex, formatStrategicBrief(newSeed));
+  } else {
+    // Insert Strategic Brief after the header
+    const headerRegex = /^(# .+ - Learnings\s*\n\s*)/;
+    if (headerRegex.test(learnings)) {
+      return learnings.replace(headerRegex, `$1\n${formatStrategicBrief(newSeed)}`);
+    } else {
+      // No header found, prepend everything
+      return `# ${name} - Learnings\n\n${formatStrategicBrief(newSeed)}${learnings}`;
+    }
+  }
 }
 
 export async function createMatch(
@@ -114,51 +195,65 @@ export async function createMatch(
   ensureDir(speaker1Dir);
   ensureDir(speaker2Dir);
 
-  // Get prompts (fork, seed, or default)
-  let speaker1Prompt: string;
-  let speaker2Prompt: string;
+  // Build learnings files (the source of truth)
+  let learnings1 = `# ${config.speaker1Name} - Learnings\n\n`;
+  let learnings2 = `# ${config.speaker2Name} - Learnings\n\n`;
 
   if (forkFromMatchId) {
-    // Fork from existing match - find agent dirs by slug prefix
+    // Fork: copy learnings.md from source match (preserves Strategic Brief + history)
     const sourceAgentsDir = path.join(MATCHES_DIR, forkFromMatchId, "agents");
     const sourceSpeaker1Dir = findAgentDirBySlug(sourceAgentsDir, speaker1Slug);
     const sourceSpeaker2Dir = findAgentDirBySlug(sourceAgentsDir, speaker2Slug);
 
-    speaker1Prompt = sourceSpeaker1Dir
-      ? fs.readFileSync(path.join(sourceSpeaker1Dir, "prompt.md"), "utf-8")
-      : generateInitialPrompt(config.speaker1Name);
-    speaker2Prompt = sourceSpeaker2Dir
-      ? fs.readFileSync(path.join(sourceSpeaker2Dir, "prompt.md"), "utf-8")
-      : generateInitialPrompt(config.speaker2Name);
-  } else if (config.seed1 || config.seed2) {
-    // Generate prompts from seeds
-    speaker1Prompt = config.seed1
-      ? await generateSeededPrompt(config.speaker1Name, config.seed1, config.modelId)
-      : generateInitialPrompt(config.speaker1Name);
-    speaker2Prompt = config.seed2
-      ? await generateSeededPrompt(config.speaker2Name, config.seed2, config.modelId)
-      : generateInitialPrompt(config.speaker2Name);
+    if (sourceSpeaker1Dir) {
+      const sourceLearnings = path.join(sourceSpeaker1Dir, "learnings.md");
+      if (fs.existsSync(sourceLearnings)) {
+        learnings1 = fs.readFileSync(sourceLearnings, "utf-8");
+      }
+    }
+    if (sourceSpeaker2Dir) {
+      const sourceLearnings = path.join(sourceSpeaker2Dir, "learnings.md");
+      if (fs.existsSync(sourceLearnings)) {
+        learnings2 = fs.readFileSync(sourceLearnings, "utf-8");
+      }
+    }
+
+    // If seed provided alongside fork, update/replace the Strategic Brief
+    if (config.seed1) {
+      learnings1 = replaceStrategicBrief(learnings1, config.speaker1Name, config.seed1);
+    }
+    if (config.seed2) {
+      learnings2 = replaceStrategicBrief(learnings2, config.speaker2Name, config.seed2);
+    }
   } else {
-    speaker1Prompt = generateInitialPrompt(config.speaker1Name);
-    speaker2Prompt = generateInitialPrompt(config.speaker2Name);
+    // New match: add Strategic Brief if seeds provided
+    if (config.seed1) {
+      learnings1 += formatStrategicBrief(config.seed1);
+    }
+    if (config.seed2) {
+      learnings2 += formatStrategicBrief(config.seed2);
+    }
   }
 
-  // Save initial prompts
+  // Save learnings files
+  fs.writeFileSync(path.join(speaker1Dir, "learnings.md"), learnings1);
+  fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), learnings2);
+
+  // Generate prompts from learnings (single source of truth)
+  const speaker1Prompt = await generatePromptFromLearnings(
+    config.speaker1Name,
+    learnings1,
+    config.modelId
+  );
+  const speaker2Prompt = await generatePromptFromLearnings(
+    config.speaker2Name,
+    learnings2,
+    config.modelId
+  );
+
+  // Save generated prompts (as cache/reference)
   fs.writeFileSync(path.join(speaker1Dir, "prompt.md"), speaker1Prompt);
   fs.writeFileSync(path.join(speaker2Dir, "prompt.md"), speaker2Prompt);
-
-  // Create learnings files with user seed at top if provided
-  let learnings1 = `# ${config.speaker1Name} - Learnings\n\n`;
-  if (config.seed1) {
-    learnings1 += `## User Intent\n\n> ${config.seed1}\n\n---\n\n`;
-  }
-  fs.writeFileSync(path.join(speaker1Dir, "learnings.md"), learnings1);
-
-  let learnings2 = `# ${config.speaker2Name} - Learnings\n\n`;
-  if (config.seed2) {
-    learnings2 += `## User Intent\n\n> ${config.seed2}\n\n---\n\n`;
-  }
-  fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), learnings2);
 
   // Create agent configs
   const firstSpeaker: AgentConfig = {
