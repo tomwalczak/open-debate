@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text, useApp } from "ink";
 import {
   SpeakerInput,
@@ -6,21 +6,14 @@ import {
   TopicFocusInput,
   QuestionReview,
   CoachToggle,
-  ParallelDebateView,
-  TabBar,
+  MatchView,
   Spinner,
 } from "./components/index.js";
-import {
-  initializeParallelDebate,
-  runParallelDebate,
-  completeParallelDebateWithHumanFeedback,
-} from "./services/parallel-debate-engine.js";
-import { generateQuestions, refineQuestions } from "./services/question-generator.js";
-import type { DebateState, WizardState, DebateConfig, QuestionExecutionState } from "./types/debate.js";
+import { runMatch, type MatchCallbacks } from "./services/match-engine.js";
+import { findLatestMatch } from "./services/match-storage.js";
+import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
-
-const isTTY = process.stdin.isTTY;
 
 export interface AppProps {
   cliArgs?: {
@@ -38,29 +31,34 @@ export interface AppProps {
   };
 }
 
+type MatchPhase = "init" | "generating" | "debating" | "judging" | "learning" | "complete";
+
 export function App({ cliArgs }: AppProps) {
   const { exit } = useApp();
   const [wizard, setWizard] = useState<WizardState>(DEFAULT_WIZARD_STATE);
-  const [debates, setDebates] = useState<DebateState[]>([]);
-  const [activeDebateIndex, setActiveDebateIndex] = useState(0);
+  const [match, setMatch] = useState<MatchState | null>(null);
+  const [currentDebate, setCurrentDebate] = useState(1);
+  const [phase, setPhase] = useState<MatchPhase>("init");
   const [questionStates, setQuestionStates] = useState<Map<number, QuestionExecutionState>>(new Map());
+  const [debateResults, setDebateResults] = useState<Array<{ speaker1Wins: number; speaker2Wins: number }>>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [debatesRemaining, setDebatesRemaining] = useState(cliArgs?.debates || 1);
   const [modelId] = useState(cliArgs?.model || DEFAULT_MODEL_ID);
 
-  const activeDebate = debates[activeDebateIndex];
-
-  const callbacks = {
-    onStateChange: (state: DebateState) => {
-      setDebates((prev) => {
-        const index = prev.findIndex((d) => d.id === state.id);
-        if (index >= 0) {
-          const newDebates = [...prev];
-          newDebates[index] = state;
-          return newDebates;
-        }
-        return [...prev, state];
-      });
+  const callbacks: MatchCallbacks = {
+    onMatchStart: (m: MatchState) => {
+      setMatch(m);
+      setPhase("init");
+    },
+    onDebateStart: (debateNumber: number) => {
+      setCurrentDebate(debateNumber);
+      setQuestionStates(new Map());
+      setPhase("generating");
+    },
+    onDebateEnd: (debateNumber: number, speaker1Wins: number, speaker2Wins: number) => {
+      setDebateResults((prev) => [...prev, { speaker1Wins, speaker2Wins }]);
+    },
+    onMatchEnd: (_m: MatchState) => {
+      setPhase("complete");
     },
     onQuestionStateChange: (questionState: QuestionExecutionState) => {
       setQuestionStates((prev) => {
@@ -68,12 +66,21 @@ export function App({ cliArgs }: AppProps) {
         newMap.set(questionState.questionIndex, questionState);
         return newMap;
       });
+      // Update phase based on question states
+      if (questionState.status === "debating") {
+        setPhase("debating");
+      } else if (questionState.status === "judging") {
+        setPhase("judging");
+      }
     },
     onQuestionStreamChunk: (_questionIndex: number, _chunk: string) => {
       // Streaming is handled via onQuestionStateChange
     },
+    onLearning: () => {
+      setPhase("learning");
+    },
     onError: (error: Error) => {
-      console.error("Debate error:", error);
+      console.error("Match error:", error);
     },
   };
 
@@ -87,69 +94,31 @@ export function App({ cliArgs }: AppProps) {
   const handleCliAutomation = async () => {
     if (!cliArgs?.speaker1 || !cliArgs?.speaker2) return;
 
-    setIsLoading(true);
     const issues = cliArgs.issues?.split(",").map((s) => s.trim()) || [];
 
-    try {
-      const questions = await generateQuestions({
-        speaker1Name: cliArgs.speaker1,
-        speaker2Name: cliArgs.speaker2,
-        count: cliArgs.questions || 5,
-        issueFocus: issues,
-        modelId,
-      });
-
-      const config: DebateConfig = {
-        questions,
-        roundsPerQuestion: cliArgs.rounds || 3,
-        humanCoachEnabled: cliArgs.humanCoach ?? false,
-        issueFocus: issues,
-      };
-
-      await startDebate(cliArgs.speaker1, cliArgs.speaker2, config, cliArgs.fork ?? false);
-    } catch (error) {
-      console.error("Failed to start debate:", error);
-      exit();
+    // Check if forking from existing match
+    let forkFromMatchId: string | undefined;
+    if (cliArgs.fork) {
+      forkFromMatchId = findLatestMatch(cliArgs.speaker1, cliArgs.speaker2) || undefined;
     }
-  };
 
-  const startDebate = async (
-    speaker1: string,
-    speaker2: string,
-    config: DebateConfig,
-    fork: boolean = false
-  ) => {
-    setIsLoading(true);
-    setQuestionStates(new Map());
+    const matchConfig: MatchConfig = {
+      speaker1Name: cliArgs.speaker1,
+      speaker2Name: cliArgs.speaker2,
+      totalDebates: cliArgs.debates || 1,
+      questionsPerDebate: cliArgs.questions || 5,
+      roundsPerQuestion: cliArgs.rounds || 3,
+      humanCoachEnabled: cliArgs.humanCoach ?? false,
+      selfImprove: cliArgs.selfImprove ?? false,
+      issueFocus: issues.length > 0 ? issues : undefined,
+      modelId,
+    };
 
     try {
-      const initialState = initializeParallelDebate(
-        speaker1,
-        speaker2,
-        config,
-        modelId,
-        callbacks,
-        fork
-      );
-
-      setDebates([initialState]);
-      setActiveDebateIndex(0);
-      setIsLoading(false);
-
-      // Run the debate in parallel
-      const finalState = await runParallelDebate(initialState, callbacks, cliArgs?.selfImprove ?? false);
-
-      // If autopilot and more debates remaining, start another
-      if (cliArgs?.autopilot && debatesRemaining > 1) {
-        setDebatesRemaining((prev) => prev - 1);
-        // Start another debate after a short delay
-        setTimeout(() => {
-          handleCliAutomation();
-        }, 1000);
-      }
+      await runMatch(matchConfig, callbacks, forkFromMatchId);
     } catch (error) {
-      console.error("Failed to run debate:", error);
-      setIsLoading(false);
+      console.error("Failed to run match:", error);
+      exit();
     }
   };
 
@@ -162,11 +131,12 @@ export function App({ cliArgs }: AppProps) {
     }));
   };
 
-  const handleSettings = (rounds: number, questionCount: number) => {
+  const handleSettings = (rounds: number, questionCount: number, debateCount: number) => {
     setWizard((prev) => ({
       ...prev,
       roundsPerQuestion: rounds,
       questionCount,
+      debateCount,
       step: "topic_focus",
     }));
   };
@@ -175,44 +145,8 @@ export function App({ cliArgs }: AppProps) {
     setWizard((prev) => ({
       ...prev,
       issueFocus: topics,
-      step: "question_review",
+      step: "coach_toggle",
     }));
-
-    setIsLoading(true);
-    try {
-      const questions = await generateQuestions({
-        speaker1Name: wizard.speaker1Name,
-        speaker2Name: wizard.speaker2Name,
-        count: wizard.questionCount,
-        issueFocus: topics,
-        modelId,
-      });
-      setWizard((prev) => ({ ...prev, questions }));
-    } catch (error) {
-      console.error("Failed to generate questions:", error);
-    }
-    setIsLoading(false);
-  };
-
-  const handleQuestionRefine = async (command: string) => {
-    setIsLoading(true);
-    try {
-      const newQuestions = await refineQuestions(
-        wizard.questions,
-        command,
-        wizard.speaker1Name,
-        wizard.speaker2Name,
-        modelId
-      );
-      setWizard((prev) => ({ ...prev, questions: newQuestions }));
-    } catch (error) {
-      console.error("Failed to refine questions:", error);
-    }
-    setIsLoading(false);
-  };
-
-  const handleQuestionApprove = () => {
-    setWizard((prev) => ({ ...prev, step: "coach_toggle" }));
   };
 
   const handleCoachToggle = async (enabled: boolean) => {
@@ -222,23 +156,24 @@ export function App({ cliArgs }: AppProps) {
       step: "ready",
     }));
 
-    const config: DebateConfig = {
-      questions: wizard.questions,
+    const matchConfig: MatchConfig = {
+      speaker1Name: wizard.speaker1Name,
+      speaker2Name: wizard.speaker2Name,
+      totalDebates: wizard.debateCount || 1,
+      questionsPerDebate: wizard.questionCount,
       roundsPerQuestion: wizard.roundsPerQuestion,
       humanCoachEnabled: enabled,
-      issueFocus: wizard.issueFocus,
+      selfImprove: false,
+      issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
+      modelId,
     };
 
-    await startDebate(wizard.speaker1Name, wizard.speaker2Name, config);
-  };
-
-  const handleHumanFeedback = async (feedback: string) => {
-    if (activeDebate) {
-      await completeParallelDebateWithHumanFeedback(activeDebate, feedback, callbacks, cliArgs?.selfImprove ?? false);
+    try {
+      await runMatch(matchConfig, callbacks);
+    } catch (error) {
+      console.error("Failed to run match:", error);
     }
   };
-
-  // Note: Ctrl+C handling is automatic via Ink when in TTY mode
 
   // Wizard mode (no CLI args)
   if (!cliArgs?.speaker1 && wizard.step !== "ready") {
@@ -252,49 +187,19 @@ export function App({ cliArgs }: AppProps) {
         {wizard.step === "speakers" && <SpeakerInput onComplete={handleSpeakers} />}
         {wizard.step === "settings" && <SettingsInput onComplete={handleSettings} />}
         {wizard.step === "topic_focus" && <TopicFocusInput onComplete={handleTopicFocus} />}
-        {wizard.step === "question_review" && (
-          <QuestionReview
-            questions={wizard.questions}
-            isLoading={isLoading}
-            onApprove={handleQuestionApprove}
-            onRefine={handleQuestionRefine}
-          />
-        )}
         {wizard.step === "coach_toggle" && <CoachToggle onComplete={handleCoachToggle} />}
       </Box>
     );
   }
 
-  // Loading state
-  if (isLoading && debates.length === 0) {
-    return (
-      <Box padding={1}>
-        <Spinner label="Initializing debate..." />
-      </Box>
-    );
-  }
-
-  // Debate view
-  if (activeDebate) {
-    return (
-      <Box flexDirection="column">
-        <TabBar
-          debates={debates}
-          activeIndex={activeDebateIndex}
-          onSwitch={setActiveDebateIndex}
-        />
-        <ParallelDebateView
-          state={activeDebate}
-          questionStates={questionStates}
-          onHumanFeedback={handleHumanFeedback}
-        />
-      </Box>
-    );
-  }
-
+  // Match view
   return (
-    <Box padding={1}>
-      <Spinner label="Starting..." />
-    </Box>
+    <MatchView
+      match={match}
+      currentDebate={currentDebate}
+      questionStates={questionStates}
+      phase={phase}
+      debateResults={debateResults}
+    />
   );
 }

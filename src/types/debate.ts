@@ -1,6 +1,36 @@
 import type { AgentConfig } from "./agent.js";
 import type { JudgeVerdict, FinalTally } from "./judge.js";
 
+// Match = series of debates between two speakers
+export interface MatchConfig {
+  speaker1Name: string;
+  speaker2Name: string;
+  totalDebates: number;
+  questionsPerDebate: number;
+  roundsPerQuestion: number;
+  humanCoachEnabled: boolean;
+  selfImprove: boolean;
+  issueFocus?: string[];
+  modelId: string;
+}
+
+export interface MatchState {
+  id: string;  // adj-noun format
+  dirPath: string;
+  config: MatchConfig;
+  currentDebateNumber: number;
+  completedDebates: DebateResult[];
+  firstSpeaker: AgentConfig;
+  secondSpeaker: AgentConfig;
+}
+
+export interface DebateResult {
+  debateNumber: number;
+  questionResults: QuestionResult[];
+  finalTally: FinalTally;
+  completedAt: string;
+}
+
 export type QuestionStatus = "pending" | "debating" | "judging" | "complete";
 
 export interface QuestionExecutionState {
@@ -69,15 +99,14 @@ export interface WizardState {
     | "speakers"
     | "settings"
     | "topic_focus"
-    | "question_review"
     | "coach_toggle"
     | "ready";
   speaker1Name: string;
   speaker2Name: string;
   roundsPerQuestion: number;
   questionCount: number;
+  debateCount: number;
   issueFocus: string[];
-  questions: string[];
   humanCoachEnabled: boolean;
 }
 
@@ -87,7 +116,7 @@ export const DEFAULT_WIZARD_STATE: WizardState = {
   speaker2Name: "",
   roundsPerQuestion: 3,
   questionCount: 5,
+  debateCount: 1,
   issueFocus: [],
-  questions: [],
   humanCoachEnabled: false,
 };

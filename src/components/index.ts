@@ -9,4 +9,5 @@ export { DebateView } from "./DebateView.js";
 export { TabBar } from "./TabBar.js";
 export { QuestionPanel } from "./QuestionPanel.js";
 export { ParallelDebateView } from "./ParallelDebateView.js";
+export { MatchView } from "./MatchView.js";
 export * from "./Wizard/index.js";
