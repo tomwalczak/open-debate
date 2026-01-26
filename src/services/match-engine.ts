@@ -254,20 +254,24 @@ async function runSingleDebate(
   const judge = createJudgeAgent(config.modelId);
   const pool = new QuestionPool(MAX_CONCURRENT_QUESTIONS);
 
-  // Run all questions in parallel
-  const questionPromises = questions.map((question, index) =>
-    pool.add(() =>
+  // Run all questions in parallel, alternating speaker order to balance second-speaker advantage
+  const questionPromises = questions.map((question, index) => {
+    // Alternate who goes first: even index = speaker1 first, odd index = speaker2 first
+    const goesFirst = index % 2 === 0 ? firstSpeaker : secondSpeaker;
+    const goesSecond = index % 2 === 0 ? secondSpeaker : firstSpeaker;
+
+    return pool.add(() =>
       executeQuestion(
         index,
         question,
         config.roundsPerQuestion,
-        firstSpeaker,
-        secondSpeaker,
+        goesFirst,
+        goesSecond,
         judge,
         callbacks
       )
-    )
-  );
+    );
+  });
 
   const results = await Promise.all(questionPromises);
 
