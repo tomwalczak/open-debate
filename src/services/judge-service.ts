@@ -6,9 +6,8 @@ import type { Exchange } from "../types/debate.js";
 import type { JudgeVerdict, FinalTally } from "../types/judge.js";
 
 const verdictSchema = z.object({
+  reasoning: z.string().describe("Brief explanation for the verdict (max 100 words)"),
   winnerId: z.string().describe("The ID of the winning speaker"),
-  winnerName: z.string().describe("The name of the winning speaker"),
-  reason: z.string().describe("Brief explanation for the verdict (max 100 words)"),
 });
 
 export async function judgeQuestion(
@@ -19,27 +18,19 @@ export async function judgeQuestion(
   judge: AgentConfig
 ): Promise<JudgeVerdict> {
   const transcript = exchanges
-    .map((ex) => `${ex.speakerName} (Round ${ex.roundNumber}):\n${ex.message}`)
+    .map((ex) => `[${ex.speakerId}]:\n${ex.message}`)
     .join("\n\n---\n\n");
 
   const { object } = await generateObject({
     model: getModel(judge.modelId),
     schema: verdictSchema,
     system: judge.systemPrompt,
-    prompt: `Evaluate this debate round on the question: "${question}"
+    prompt: `Question: "${question}"
 
-Speaker 1: ${speaker1.name} (ID: ${speaker1.id})
-Speaker 2: ${speaker2.name} (ID: ${speaker2.id})
+Speaker IDs: ${speaker1.id}, ${speaker2.id}
 
 Transcript:
-${transcript}
-
-Determine which speaker made the more compelling case. Consider:
-- Quality of arguments and evidence
-- How well they addressed their opponent's points
-- Clarity and persuasiveness
-
-Provide your verdict with the winner's ID, name, and a brief reason (max 100 words).`,
+${transcript}`,
   });
 
   return object;

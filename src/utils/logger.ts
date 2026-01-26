@@ -57,9 +57,12 @@ export function writeTranscriptMd(state: DebateState): void {
     });
 
     if (qr.verdict) {
+      const winnerName = qr.verdict.winnerId === state.firstSpeaker.id
+        ? state.firstSpeaker.name
+        : state.secondSpeaker.name;
       md += `### Judge Verdict\n\n`;
-      md += `**Winner**: ${qr.verdict.winnerName}\n\n`;
-      md += `**Reason**: ${qr.verdict.reason}\n\n`;
+      md += `**Winner**: ${winnerName}\n\n`;
+      md += `**Reasoning**: ${qr.verdict.reasoning}\n\n`;
     }
 
     md += `---\n\n`;

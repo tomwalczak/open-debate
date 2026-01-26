@@ -84,7 +84,7 @@ export function QuestionPanel({
         <Box marginTop={1}>
           <Text color="green">Winner: </Text>
           <Text bold color={verdict.winnerId === speaker1Id ? "blue" : "magenta"}>
-            {verdict.winnerName}
+            {verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name}
           </Text>
         </Box>
       )}

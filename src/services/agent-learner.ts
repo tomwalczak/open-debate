@@ -23,7 +23,7 @@ function generateLogEntry(
 
       const won = qr.verdict.winnerId === agent.id;
       const outcome = won ? "WON" : "LOST";
-      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reason.slice(0, 100)}..."`;
+      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reasoning.slice(0, 100)}..."`;
     })
     .join("\n");
 
@@ -57,8 +57,9 @@ async function generateSelfAnalysis(
         .filter((ex) => ex.speakerId === agent.id)
         .map((ex) => ex.message)
         .join("\n");
+      const won = qr.verdict?.winnerId === agent.id;
       const verdict = qr.verdict
-        ? `Winner: ${qr.verdict.winnerName} - ${qr.verdict.reason}`
+        ? `${won ? "I won" : "I lost"} - ${qr.verdict.reasoning}`
         : "No verdict";
       return `Q${i + 1}: ${qr.question}\nMy arguments:\n${agentExchanges}\nVerdict: ${verdict}`;
     })
@@ -155,7 +156,7 @@ export async function updateAgentAfterDebate(
 
       const won = qr.verdict.winnerId === agent.id;
       const outcome = won ? "WON" : "LOST";
-      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reason.slice(0, 100)}..."`;
+      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reasoning.slice(0, 100)}..."`;
     })
     .join("\n");
 

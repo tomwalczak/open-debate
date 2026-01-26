@@ -1,7 +1,6 @@
 export interface JudgeVerdict {
+  reasoning: string;
   winnerId: string;
-  winnerName: string;
-  reason: string;
 }
 
 export interface FinalTally {

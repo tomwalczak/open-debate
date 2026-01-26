@@ -5,9 +5,14 @@ import type { JudgeVerdict as JudgeVerdictType } from "../types/judge.js";
 interface JudgeVerdictProps {
   verdict: JudgeVerdictType;
   questionNumber?: number;
+  speaker1Id: string;
+  speaker1Name: string;
+  speaker2Name: string;
 }
 
-export function JudgeVerdict({ verdict, questionNumber }: JudgeVerdictProps) {
+export function JudgeVerdict({ verdict, questionNumber, speaker1Id, speaker1Name, speaker2Name }: JudgeVerdictProps) {
+  const winnerName = verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name;
+
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
       <Text bold color="yellow">
@@ -16,13 +21,13 @@ export function JudgeVerdict({ verdict, questionNumber }: JudgeVerdictProps) {
       <Box marginTop={1}>
         <Text>
           <Text color="green" bold>Winner: </Text>
-          <Text>{verdict.winnerName}</Text>
+          <Text>{winnerName}</Text>
         </Text>
       </Box>
       <Box marginTop={1}>
         <Text wrap="wrap">
-          <Text color="gray">Reason: </Text>
-          {verdict.reason}
+          <Text color="gray">Reasoning: </Text>
+          {verdict.reasoning}
         </Text>
       </Box>
     </Box>

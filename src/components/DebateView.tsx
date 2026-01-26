@@ -116,7 +116,14 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
       {questionResults
         .filter((qr) => qr.verdict)
         .map((qr, i) => (
-          <JudgeVerdict key={i} verdict={qr.verdict!} questionNumber={i + 1} />
+          <JudgeVerdict
+            key={i}
+            verdict={qr.verdict!}
+            questionNumber={i + 1}
+            speaker1Id={firstSpeaker.id}
+            speaker1Name={firstSpeaker.name}
+            speaker2Name={secondSpeaker.name}
+          />
         ))}
 
       {/* Final tally */}

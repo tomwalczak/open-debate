@@ -119,7 +119,7 @@ export function ParallelDebateView({
                 <Text>
                   Q{qs.questionIndex + 1}{" "}
                   <Text color={qs.verdict?.winnerId === firstSpeaker.id ? "blue" : "magenta"}>
-                    {qs.verdict?.winnerName || "?"}
+                    {qs.verdict ? (qs.verdict.winnerId === firstSpeaker.id ? firstSpeaker.name : secondSpeaker.name) : "?"}
                   </Text>
                   {i < completedQuestions.length - 1 ? " |" : ""}
                 </Text>
