@@ -85,10 +85,11 @@ export async function generatePromptFromLearnings(
   overageChars?: number
 ): Promise<string> {
   // Check if there's meaningful content beyond just the header
-  const hasContent = learnings.includes("<strategic-brief>") ||
-                     learnings.includes("## ") && !learnings.match(/^# .+ - Learnings\s*$/m);
+  const hasStrategicBrief = learnings.includes("<strategic-brief>");
+  const hasDebateHistory = /^## \d{4}-\d{2}-\d{2}/m.test(learnings); // Has dated debate sections
+  const hasContent = hasStrategicBrief || hasDebateHistory;
 
-  if (!hasContent || learnings.trim().split("\n").length <= 2) {
+  if (!hasContent) {
     // No meaningful learnings - generate basic prompt
     return generateInitialPrompt(name);
   }
@@ -96,9 +97,6 @@ export async function generatePromptFromLearnings(
   const overageNote = overageChars
     ? `\n\nYour previous attempt was ${overageChars} characters over the limit. Be more concise this time.`
     : "";
-
-  // Check for Strategic Brief
-  const hasStrategicBrief = learnings.includes("<strategic-brief>");
 
   const strategicBriefInstruction = hasStrategicBrief
     ? `
