@@ -44,12 +44,37 @@ function formatDateShort(): string {
   return `${month}-${day}-${year}`;
 }
 
+function getNextSequenceNumber(date: string): string {
+  if (!fs.existsSync(MATCHES_DIR)) {
+    return "00";
+  }
+
+  const entries = fs.readdirSync(MATCHES_DIR);
+  // Find matches starting with this date and extract sequence numbers
+  const todayMatches = entries.filter(e => e.startsWith(date + "-"));
+  const seqNumbers = todayMatches
+    .map(e => {
+      // Format: 2026-01-26-00-alex-vs-al-...
+      const parts = e.split("-");
+      if (parts.length >= 4) {
+        const seq = parseInt(parts[3], 10);
+        return isNaN(seq) ? -1 : seq;
+      }
+      return -1;
+    })
+    .filter(n => n >= 0);
+
+  const nextSeq = seqNumbers.length > 0 ? Math.max(...seqNumbers) + 1 : 0;
+  return nextSeq.toString().padStart(2, "0");
+}
+
 function generateMatchId(speaker1Name: string, speaker2Name: string): string {
   const date = formatDate();
+  const seq = getNextSequenceNumber(date);
   const s1 = nameToSlug(speaker1Name).split("-")[0]; // First word only
   const s2 = nameToSlug(speaker2Name).split("-")[0];
   const adjNoun = `${getRandomElement(ADJECTIVES)}-${getRandomElement(NOUNS)}`;
-  return `${date}-${s1}-vs-${s2}-${adjNoun}`;
+  return `${date}-${seq}-${s1}-vs-${s2}-${adjNoun}`;
 }
 
 function nameToSlug(name: string): string {
