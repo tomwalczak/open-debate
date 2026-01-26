@@ -15,6 +15,7 @@ import { generateDisplayNames } from "./services/name-generator.js";
 import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
+import type { MatchSummary } from "./types/judge.js";
 
 export interface AppProps {
   cliArgs?: {
@@ -45,6 +46,7 @@ export function App({ cliArgs }: AppProps) {
   const [phase, setPhase] = useState<MatchPhase>("init");
   const [questionStates, setQuestionStates] = useState<Map<number, QuestionExecutionState>>(new Map());
   const [debateResults, setDebateResults] = useState<Array<{ speaker1Wins: number; speaker2Wins: number }>>([]);
+  const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [modelId] = useState(cliArgs?.model || DEFAULT_MODEL_ID);
 
@@ -63,6 +65,9 @@ export function App({ cliArgs }: AppProps) {
     },
     onMatchEnd: (_m: MatchState) => {
       setPhase("complete");
+    },
+    onMatchSummary: (summary: MatchSummary) => {
+      setMatchSummary(summary);
     },
     onQuestionStateChange: (questionState: QuestionExecutionState) => {
       setQuestionStates((prev) => {
@@ -253,6 +258,7 @@ export function App({ cliArgs }: AppProps) {
       questionStates={questionStates}
       phase={phase}
       debateResults={debateResults}
+      matchSummary={matchSummary}
     />
   );
 }

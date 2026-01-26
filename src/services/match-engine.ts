@@ -1,7 +1,8 @@
 import { streamText } from "ai";
 import { getModel } from "./openrouter.js";
 import { createJudgeAgent } from "./agent-factory.js";
-import { judgeQuestion, calculateFinalTally } from "./judge-service.js";
+import { judgeQuestion, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
+import type { MatchSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
 import { createMatch, saveDebateResult } from "./match-storage.js";
 import { generateQuestions } from "./question-generator.js";
@@ -36,6 +37,7 @@ export interface MatchCallbacks {
   onDebateStart: (debateNumber: number) => void;
   onDebateEnd: (debateNumber: number, speaker1Wins: number, speaker2Wins: number) => void;
   onMatchEnd: (match: MatchState) => void;
+  onMatchSummary: (summary: MatchSummary) => void;
   onQuestionStateChange: (questionState: QuestionExecutionState) => void;
   onQuestionStreamChunk: (questionIndex: number, chunk: string) => void;
   onLearning: () => void;
@@ -466,5 +468,20 @@ export async function runMatch(
   }
 
   callbacks.onMatchEnd(match);
+
+  // Generate and send match summary
+  try {
+    const summary = await generateMatchSummary(
+      config.speaker1Name,
+      config.speaker2Name,
+      match.completedDebates,
+      config.modelId
+    );
+    callbacks.onMatchSummary(summary);
+  } catch (error) {
+    // Don't fail the match if summary fails
+    console.error("Failed to generate match summary:", error);
+  }
+
   return match;
 }

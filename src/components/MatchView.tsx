@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { MatchState, QuestionExecutionState } from "../types/debate.js";
+import type { MatchSummary } from "../types/judge.js";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionPanel } from "./QuestionPanel.js";
@@ -12,6 +13,7 @@ interface MatchViewProps {
   questionStates: Map<number, QuestionExecutionState>;
   phase: "init" | "generating" | "debating" | "judging" | "learning" | "complete";
   debateResults: Array<{ speaker1Wins: number; speaker2Wins: number }>;
+  matchSummary?: MatchSummary | null;
 }
 
 export function MatchView({
@@ -20,6 +22,7 @@ export function MatchView({
   questionStates,
   phase,
   debateResults,
+  matchSummary,
 }: MatchViewProps) {
   if (!match) {
     return (
@@ -172,6 +175,29 @@ export function MatchView({
               Final: <Text color={theme.speaker1} bold>{firstSpeaker.name} {totalS1Wins}</Text> - <Text color={theme.speaker2}>{totalS2Wins} {secondSpeaker.name}</Text>
             </Text>
           </Box>
+
+          {/* Judge's Summary */}
+          {matchSummary ? (
+            <Box flexDirection="column" marginTop={1}>
+              <Text bold color={theme.accent}>Judge's Analysis:</Text>
+              <Box marginTop={1} flexDirection="column">
+                <Text wrap="wrap">{matchSummary.trajectory}</Text>
+              </Box>
+              <Box marginTop={1} flexDirection="column">
+                <Text bold dimColor>Key Arguments:</Text>
+                <Text wrap="wrap">{matchSummary.keyArguments}</Text>
+              </Box>
+              <Box marginTop={1} flexDirection="column">
+                <Text bold dimColor>Verdict:</Text>
+                <Text wrap="wrap" color={theme.accent}>{matchSummary.verdict}</Text>
+              </Box>
+            </Box>
+          ) : (
+            <Box marginTop={1}>
+              <Spinner label="Generating judge's analysis..." />
+            </Box>
+          )}
+
           <Box marginTop={1}>
             <Text dimColor>Saved to matches/{match.id}/</Text>
           </Box>
