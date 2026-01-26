@@ -35,8 +35,9 @@ Requirements:
 - Each question should be a clear proposition that can be argued for or against
 - Questions should be relevant to the speakers' known perspectives or expertise
 - Questions should be thought-provoking and allow for substantive debate
-- Format each as a statement (e.g., "Nuclear power should replace coal as the primary energy source")
-- Avoid yes/no questions; use "should" statements or similar propositional formats`;
+- Format as "should" statements (e.g., "Nuclear power should replace coal") or assertions (e.g., "Climate change poses an existential threat to humanity")
+- Avoid yes/no questions
+- Cover maximum surface area across different angles and sub-topics, so audiences can assess relative strengths and weaknesses of each side`;
 
   if (issueFocus.length > 0) {
     prompt += `\n\nFocus areas to emphasize: ${issueFocus.join(", ")}`;

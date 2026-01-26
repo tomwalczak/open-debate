@@ -3,7 +3,7 @@ import "dotenv/config";
 
 // Handle --help before any other imports to avoid API key check
 const args = process.argv.slice(2);
-if (args.includes("--help") || args.includes("-h")) {
+if (args.includes("--help")) {
   console.log(`
 Open Debate - AI Debate Arena
 
@@ -12,19 +12,19 @@ Usage:
   npx debate [options]                Command-line automation mode
 
 Options:
-  --speaker1, -s1 <name>    First speaker name or persona
-  --speaker2, -s2 <name>    Second speaker name or persona
-  --rounds, -r <number>     Rounds per question (default: 3)
-  --questions, -q <number>  Number of debate questions (default: 5)
-  --issues, -i <topics>     Comma-separated focus topics
-  --human-coach, -hc        Enable human coaching
+  --speaker1 <name>         First speaker name or persona
+  --speaker2 <name>         Second speaker name or persona
+  --rounds <number>         Rounds per question (default: 3)
+  --questions <number>      Number of debate questions (default: 5)
+  --issues <topics>         Comma-separated focus topics
+  --human-coach             Enable human coaching
   --no-human-coach          Disable human coaching
-  --debates, -d <number>    Number of debates to run
-  --autopilot, -a           Run debates without human intervention
-  --fork, -f                Fork agents from existing ones (use their evolved prompts)
+  --debates <number>        Number of debates to run
+  --autopilot               Run debates without human intervention
+  --fork                    Fork agents from existing match (use evolved prompts)
   --self-improve            Enable agent self-improvement (update prompts after debates)
-  --model, -m <model>       Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
-  --help, -h                Show this help message
+  --model <model>           Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
+  --help                    Show this help message
 
 Environment:
   OPENROUTER_API_KEY        Required API key for OpenRouter
@@ -68,55 +68,45 @@ function parseArgs(rawArgs: string[]): CliArgs {
 
     switch (arg) {
       case "--speaker1":
-      case "-s1":
         result.speaker1 = nextArg;
         i++;
         break;
       case "--speaker2":
-      case "-s2":
         result.speaker2 = nextArg;
         i++;
         break;
       case "--rounds":
-      case "-r":
         result.rounds = parseInt(nextArg, 10);
         i++;
         break;
       case "--questions":
-      case "-q":
         result.questions = parseInt(nextArg, 10);
         i++;
         break;
       case "--issues":
-      case "-i":
         result.issues = nextArg;
         i++;
         break;
       case "--human-coach":
-      case "-hc":
         result.humanCoach = true;
         break;
       case "--no-human-coach":
         result.humanCoach = false;
         break;
       case "--debates":
-      case "-d":
         result.debates = parseInt(nextArg, 10);
         i++;
         break;
       case "--autopilot":
-      case "-a":
         result.autopilot = true;
         break;
       case "--fork":
-      case "-f":
         result.fork = true;
         break;
       case "--self-improve":
         result.selfImprove = true;
         break;
       case "--model":
-      case "-m":
         result.model = nextArg;
         i++;
         break;
