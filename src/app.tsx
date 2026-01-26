@@ -10,7 +10,6 @@ import {
   Spinner,
 } from "./components/index.js";
 import { runMatch, type MatchCallbacks } from "./services/match-engine.js";
-import { findLatestMatch } from "./services/match-storage.js";
 import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
@@ -27,7 +26,7 @@ export interface AppProps {
     humanCoach?: boolean;
     debates?: number;
     autopilot?: boolean;
-    fork?: boolean;
+    forkFrom?: string;
     selfImprove?: boolean;
     model?: string;
   };
@@ -98,12 +97,6 @@ export function App({ cliArgs }: AppProps) {
 
     const issues = cliArgs.issues?.split(",").map((s) => s.trim()) || [];
 
-    // Check if forking from existing match
-    let forkFromMatchId: string | undefined;
-    if (cliArgs.fork) {
-      forkFromMatchId = findLatestMatch(cliArgs.speaker1, cliArgs.speaker2) || undefined;
-    }
-
     const matchConfig: MatchConfig = {
       speaker1Name: cliArgs.speaker1,
       speaker2Name: cliArgs.speaker2,
@@ -119,7 +112,7 @@ export function App({ cliArgs }: AppProps) {
     };
 
     try {
-      await runMatch(matchConfig, callbacks, forkFromMatchId);
+      await runMatch(matchConfig, callbacks, cliArgs.forkFrom);
     } catch (error) {
       console.error("Failed to run match:", error);
       exit();

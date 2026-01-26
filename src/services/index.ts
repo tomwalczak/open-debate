@@ -9,6 +9,5 @@ export {
   appendAgentLearnings,
   readAgentLearnings,
   saveAgentPrompt,
-  findLatestMatch,
 } from "./match-storage.js";
 export { runMatch, type MatchCallbacks } from "./match-engine.js";

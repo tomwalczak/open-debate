@@ -297,35 +297,3 @@ export function saveAgentPrompt(agent: AgentConfig): void {
   fs.writeFileSync(promptPath, agent.systemPrompt);
 }
 
-export function findLatestMatch(speaker1Name: string, speaker2Name: string): string | null {
-  if (!fs.existsSync(MATCHES_DIR)) {
-    return null;
-  }
-
-  const entries = fs.readdirSync(MATCHES_DIR);
-  const speaker1Slug = nameToSlug(speaker1Name);
-  const speaker2Slug = nameToSlug(speaker2Name);
-
-  // Find matches that have both speakers
-  const matchingDirs: { id: string; mtime: number }[] = [];
-
-  for (const entry of entries) {
-    const agentsDir = path.join(MATCHES_DIR, entry, "agents");
-    if (fs.existsSync(agentsDir)) {
-      const hasS1 = fs.existsSync(path.join(agentsDir, speaker1Slug));
-      const hasS2 = fs.existsSync(path.join(agentsDir, speaker2Slug));
-      if (hasS1 && hasS2) {
-        const stat = fs.statSync(path.join(MATCHES_DIR, entry));
-        matchingDirs.push({ id: entry, mtime: stat.mtimeMs });
-      }
-    }
-  }
-
-  if (matchingDirs.length === 0) {
-    return null;
-  }
-
-  // Return most recent
-  matchingDirs.sort((a, b) => b.mtime - a.mtime);
-  return matchingDirs[0].id;
-}

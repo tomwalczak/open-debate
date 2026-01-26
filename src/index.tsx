@@ -23,7 +23,7 @@ Options:
   --no-human-coach          Disable human coaching
   --debates <number>        Number of debates to run
   --autopilot               Run debates without human intervention
-  --fork                    Fork agents from existing match (use evolved prompts)
+  --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
   --self-improve            Enable agent self-improvement (update prompts after debates)
   --model <model>           Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
   --help                    Show this help message
@@ -58,7 +58,7 @@ interface CliArgs {
   humanCoach?: boolean;
   debates?: number;
   autopilot?: boolean;
-  fork?: boolean;
+  forkFrom?: string;
   selfImprove?: boolean;
   model?: string;
 }
@@ -112,8 +112,9 @@ function parseArgs(rawArgs: string[]): CliArgs {
       case "--autopilot":
         result.autopilot = true;
         break;
-      case "--fork":
-        result.fork = true;
+      case "--fork-from":
+        result.forkFrom = nextArg;
+        i++;
         break;
       case "--self-improve":
         result.selfImprove = true;
