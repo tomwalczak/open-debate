@@ -6,7 +6,7 @@ import type { Exchange, DebateResult } from "../types/debate.js";
 import type { JudgeVerdict, FinalTally, MatchSummary } from "../types/judge.js";
 
 const verdictSchema = z.object({
-  reasoning: z.string().describe("Brief explanation for the verdict (max 100 words)"),
+  reasoning: z.string().describe("What were the strongest arguments? What logic or evidence was most compelling? (max 100 words)"),
   winnerId: z.string().describe("The ID of the winning speaker"),
 });
 
@@ -113,18 +113,23 @@ Winner: ${overallWinner}
 
 ${debateSummaries}
 
-Write a self-contained analysis that someone who didn't watch the debate can follow. Your goal is to help readers understand not just who won, but what was actually at stake and what they should take away from seeing both sides argue their best case.
+Write a self-contained analysis (MAX 600 WORDS) that someone who didn't watch the debate can follow. Help readers understand what was at stake and what to take away.
 
-Cover these areas (use your judgment on structure and format - prose, bullets, or a mix as appropriate):
+Cover:
+- Context: What core question was debated? What real-world stakes?
+- Key concepts: Briefly explain any technical terms central to the arguments.
+- Strongest arguments each side made: Be specific about actual claims, not generic commentary.
+- Blind spots: What did each side miss or concede too easily?
+- Why the winner won: What was the decisive factor?
+- The takeaway: What should a thoughtful person conclude?
 
-- Context: What was the core question being debated? What real-world stakes or decisions does this connect to?
-- Key concepts: If there are technical terms or frameworks that are central to the arguments, briefly explain them in plain language.
-- The strongest arguments each side made: Be specific about the actual claims and evidence, not generic debate commentary.
-- Blind spots: What did each side miss, concede too easily, or fail to address?
-- Why the winner won: What was the decisive factor - evidence quality, moral framing, addressing counterarguments, or something else?
-- The takeaway: What should a thoughtful person conclude about this issue after seeing both sides make their case?
+IMPORTANT FORMATTING RULES:
+- Do NOT use markdown (no **, no ##, no bullet points with -)
+- Write in plain prose paragraphs
+- Use line breaks between sections for readability
+- Keep it concise and analytical
 
-Write in clear, jargon-free language. Be analytical and specific. Use "${speaker1Name}" and "${speaker2Name}" as names throughout.`,
+Use "${speaker1Name}" and "${speaker2Name}" as names throughout.`,
   });
 
   return { summary: text.trim() };
