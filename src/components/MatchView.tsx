@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import type { MatchState, QuestionExecutionState } from "../types/debate.js";
 import type { MatchSummary } from "../types/judge.js";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
-import { QuestionPanel } from "./QuestionPanel.js";
+import { QuestionTabBar } from "./QuestionTabBar.js";
+import { ExpandedQuestionView } from "./ExpandedQuestionView.js";
 import { theme } from "../theme.js";
 
 interface MatchViewProps {
@@ -24,6 +25,33 @@ export function MatchView({
   debateResults,
   matchSummary,
 }: MatchViewProps) {
+  // Selected question index for tabbed view
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+
+  // Convert map to sorted array
+  const sortedQuestionStates = Array.from(questionStates.values()).sort(
+    (a, b) => a.questionIndex - b.questionIndex
+  );
+
+  // Auto-select first active question when selection becomes invalid or pending
+  useEffect(() => {
+    if (sortedQuestionStates.length === 0) return;
+
+    const currentSelected = sortedQuestionStates[selectedQuestionIndex];
+
+    // If current selection is valid and not pending, keep it
+    if (currentSelected && currentSelected.status !== "pending") return;
+
+    // Find first active (debating/judging) question
+    const firstActiveIndex = sortedQuestionStates.findIndex(
+      (qs) => qs.status === "debating" || qs.status === "judging"
+    );
+
+    if (firstActiveIndex !== -1 && firstActiveIndex !== selectedQuestionIndex) {
+      setSelectedQuestionIndex(firstActiveIndex);
+    }
+  }, [sortedQuestionStates, selectedQuestionIndex]);
+
   if (!match) {
     return (
       <Box padding={1}>
@@ -34,25 +62,13 @@ export function MatchView({
 
   const { config, firstSpeaker, secondSpeaker } = match;
   const totalDebates = config.totalDebates;
-
-  // Convert map to sorted array
-  const sortedQuestionStates = Array.from(questionStates.values()).sort(
-    (a, b) => a.questionIndex - b.questionIndex
-  );
+  const totalQuestions = config.questionsPerDebate;
 
   // Calculate progress for current debate
   const totalExchanges = config.questionsPerDebate * config.roundsPerQuestion * 2;
   const completedExchanges = sortedQuestionStates.reduce(
     (sum, qs) => sum + qs.exchanges.length,
     0
-  );
-
-  // Separate active and completed questions
-  const activeQuestions = sortedQuestionStates.filter(
-    (qs) => qs.status === "debating" || qs.status === "judging"
-  );
-  const completedQuestions = sortedQuestionStates.filter(
-    (qs) => qs.status === "complete"
   );
 
   // Calculate overall match score
@@ -111,46 +127,27 @@ export function MatchView({
             label={`Debate ${currentDebate}:`}
           />
 
-          {/* Active Questions - always show section header */}
-          <Box flexDirection="column" marginTop={1}>
-            <Text bold color={theme.accent}>
-              Active ({activeQuestions.length})
-            </Text>
+          {/* Question Tab Bar and Expanded View */}
+          {sortedQuestionStates.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
-              {activeQuestions.map((qs) => (
-                <QuestionPanel
-                  key={qs.questionIndex}
-                  state={qs}
+              <QuestionTabBar
+                questionStates={sortedQuestionStates}
+                activeIndex={selectedQuestionIndex}
+                onSwitch={setSelectedQuestionIndex}
+                totalRounds={config.roundsPerQuestion}
+              />
+              {sortedQuestionStates[selectedQuestionIndex] && (
+                <ExpandedQuestionView
+                  state={sortedQuestionStates[selectedQuestionIndex]}
                   speaker1Id={firstSpeaker.id}
                   speaker1Name={firstSpeaker.name}
                   speaker2Name={secondSpeaker.name}
                   totalRounds={config.roundsPerQuestion}
+                  totalQuestions={totalQuestions}
                 />
-              ))}
-            </Box>
-          </Box>
-
-          {/* Completed Questions - always show section to prevent layout shift */}
-          <Box flexDirection="column" marginTop={1} minHeight={2}>
-            <Text bold color={theme.success}>Completed:</Text>
-            <Box flexWrap="wrap" marginTop={1}>
-              {completedQuestions.length > 0 ? (
-                completedQuestions.map((qs, i) => (
-                  <Box key={qs.questionIndex} marginRight={2}>
-                    <Text dimColor>
-                      Q{qs.questionIndex + 1}{" "}
-                      <Text color={qs.verdict?.winnerId === firstSpeaker.id ? theme.speaker1 : theme.speaker2}>
-                        🏆 {qs.verdict ? (qs.verdict.winnerId === firstSpeaker.id ? firstSpeaker.name : secondSpeaker.name) : "?"}
-                      </Text>
-                      {i < completedQuestions.length - 1 ? " |" : ""}
-                    </Text>
-                  </Box>
-                ))
-              ) : (
-                <Text dimColor>-</Text>
               )}
             </Box>
-          </Box>
+          )}
         </>
       )}
 
@@ -170,10 +167,23 @@ export function MatchView({
       {phase === "complete" && (
         <Box flexDirection="column" marginTop={1} borderStyle="double" borderColor={theme.success} paddingX={2}>
           <Text bold color={theme.success}>🏆 Match Complete!</Text>
-          <Box marginTop={1}>
-            <Text>
-              Final: <Text color={theme.speaker1} bold>{firstSpeaker.name} {totalS1Wins}</Text> - <Text color={theme.speaker2}>{totalS2Wins} {secondSpeaker.name}</Text>
-            </Text>
+          <Box marginTop={1} flexDirection="column">
+            {totalS1Wins > totalS2Wins ? (
+              <>
+                <Text bold color={theme.speaker1}>{firstSpeaker.name} wins!</Text>
+                <Text dimColor>Final: {totalS1Wins} - {totalS2Wins}</Text>
+              </>
+            ) : totalS2Wins > totalS1Wins ? (
+              <>
+                <Text bold color={theme.speaker2}>{secondSpeaker.name} wins!</Text>
+                <Text dimColor>Final: {totalS2Wins} - {totalS1Wins}</Text>
+              </>
+            ) : (
+              <>
+                <Text bold>Match Tied!</Text>
+                <Text dimColor>Final: {totalS1Wins} - {totalS2Wins}</Text>
+              </>
+            )}
           </Box>
 
           {/* Judge's Summary */}
