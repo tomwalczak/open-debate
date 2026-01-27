@@ -12,6 +12,7 @@ import {
 } from "./components/index.js";
 import { runMatch, type MatchCallbacks } from "./services/match-engine.js";
 import { generateDisplayNames } from "./services/name-generator.js";
+import { parseMatchPrompt, type ParsedMatchConfig } from "./services/prompt-parser.js";
 import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
@@ -19,6 +20,7 @@ import type { MatchSummary } from "./types/judge.js";
 
 export interface AppProps {
   cliArgs?: {
+    prompt?: string;
     speaker1?: string;
     speaker2?: string;
     seed1?: string;
@@ -33,6 +35,7 @@ export interface AppProps {
     selfImprove?: boolean;
     model?: string;
     narrate?: boolean;
+    judgeSeed?: string;
   };
 }
 
@@ -95,10 +98,52 @@ export function App({ cliArgs }: AppProps) {
 
   // Handle CLI args for automation mode
   useEffect(() => {
-    if (cliArgs?.speaker1 && cliArgs?.speaker2) {
+    if (cliArgs?.prompt) {
+      handlePromptAutomation();
+    } else if (cliArgs?.speaker1 && cliArgs?.speaker2) {
       handleCliAutomation();
     }
   }, []);
+
+  const handlePromptAutomation = async () => {
+    if (!cliArgs?.prompt) return;
+
+    setIsLoading(true);
+    try {
+      const parsed = await parseMatchPrompt(cliArgs.prompt, modelId);
+
+      if (!parsed.speaker1 || !parsed.speaker2) {
+        console.error("Could not extract two speakers from prompt:", cliArgs.prompt);
+        exit();
+        return;
+      }
+
+      // Generate short display names
+      const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, modelId);
+
+      const matchConfig: MatchConfig = {
+        speaker1Name: name1,
+        speaker2Name: name2,
+        speaker1Persona: parsed.speaker1,
+        speaker2Persona: parsed.speaker2,
+        totalDebates: parsed.totalDebates,
+        questionsPerDebate: parsed.questionsPerDebate,
+        roundsPerQuestion: parsed.roundsPerQuestion,
+        humanCoachEnabled: cliArgs.humanCoach ?? false,
+        selfImprove: cliArgs.selfImprove ?? true,
+        issueFocus: parsed.issueFocus,
+        modelId,
+        narrate: parsed.narrate,
+        judgeSeed: cliArgs.judgeSeed,
+      };
+
+      setIsLoading(false);
+      await runMatch(matchConfig, callbacks, cliArgs.forkFrom);
+    } catch (error) {
+      console.error("Failed to parse prompt:", error);
+      exit();
+    }
+  };
 
   const handleCliAutomation = async () => {
     if (!cliArgs?.speaker1 || !cliArgs?.speaker2) return;
@@ -123,6 +168,7 @@ export function App({ cliArgs }: AppProps) {
       seed1: cliArgs.seed1,
       seed2: cliArgs.seed2,
       narrate: cliArgs.narrate ?? false,
+      judgeSeed: cliArgs.judgeSeed,
     };
 
     try {
@@ -145,6 +191,38 @@ export function App({ cliArgs }: AppProps) {
       speaker2Persona: speaker2,
       step: "confirm",
     }));
+  };
+
+  const handleNaturalLanguage = async (parsed: ParsedMatchConfig) => {
+    // This is only called when both speakers are present (checked by SpeakerInput)
+    if (!parsed.speaker1 || !parsed.speaker2) return;
+
+    // Generate short display names from the parsed personas
+    const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, modelId);
+
+    // Skip wizard, go directly to running
+    setWizard((prev) => ({ ...prev, step: "ready" }));
+
+    const matchConfig: MatchConfig = {
+      speaker1Name: name1,
+      speaker2Name: name2,
+      speaker1Persona: parsed.speaker1,
+      speaker2Persona: parsed.speaker2,
+      totalDebates: parsed.totalDebates,
+      questionsPerDebate: parsed.questionsPerDebate,
+      roundsPerQuestion: parsed.roundsPerQuestion,
+      humanCoachEnabled: false,
+      selfImprove: true,
+      issueFocus: parsed.issueFocus,
+      modelId,
+      narrate: parsed.narrate,
+    };
+
+    try {
+      await runMatch(matchConfig, callbacks);
+    } catch (error) {
+      console.error("Failed to run match:", error);
+    }
   };
 
   const handleConfirmStart = () => {
@@ -222,7 +300,8 @@ export function App({ cliArgs }: AppProps) {
   };
 
   // Wizard mode (no CLI args)
-  if (!cliArgs?.speaker1 && wizard.step !== "ready") {
+  // Show wizard if no CLI automation mode is active
+  if (!cliArgs?.speaker1 && !cliArgs?.prompt && wizard.step !== "ready") {
     return (
       <Box flexDirection="column" padding={1}>
         <Box marginBottom={1}>
@@ -230,7 +309,13 @@ export function App({ cliArgs }: AppProps) {
           <Text dimColor> - AI Debate Arena</Text>
         </Box>
 
-        {wizard.step === "speakers" && <SpeakerInput onComplete={handleSpeakers} />}
+        {wizard.step === "speakers" && (
+          <SpeakerInput
+            onComplete={handleSpeakers}
+            onNaturalLanguage={handleNaturalLanguage}
+            modelId={modelId}
+          />
+        )}
         {wizard.step === "confirm" && (
           <ConfirmStart
             speaker1Name={wizard.speaker1Name}

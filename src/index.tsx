@@ -12,11 +12,12 @@ Usage:
   npx debate [options]                Command-line automation mode
 
 Options:
+  --prompt <text>           Natural language prompt (e.g., "5 debates between an atheist and a Catholic")
   --speaker1 <name>         First speaker name or persona
   --speaker2 <name>         Second speaker name or persona
   --seed1 <instructions>    Instructions for generating speaker1's initial prompt
   --seed2 <instructions>    Instructions for generating speaker2's initial prompt
-  --rounds <number>         Rounds per question (default: 3)
+  --rounds <number>         Rounds per question (default: 5)
   --questions <number>      Number of debate questions (default: 5)
   --issues <topics>         Comma-separated focus topics
   --human-coach             Enable human coaching
@@ -26,15 +27,34 @@ Options:
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
   --self-improve            Enable agent self-improvement (default: on)
   --no-self-improve         Disable agent self-improvement
-  --model <model>           Model ID (default: qwen/qwen3-next-80b-a3b-instruct)
-  --narrate                 Enable real-time narrator commentary (summarizes each argument)
+  --model <model>           Model ID (backend:model format, see below)
+  --narrate                 Enable real-time narrator commentary (off by default)
+  --no-narrate              Disable narrator commentary (default)
+  --judge-seed <text>       Instructions for judge persona (e.g., "liberal judge aligned with Democratic party values")
   --help                    Show this help message
 
+Model Selection:
+  Direct APIs:
+    openai:gpt-5.2                      GPT-5.2 via OpenAI
+    google:gemini-2.5-flash             Gemini 2.5 Flash via Google
+    google:gemini-3-pro-preview         Gemini 3 Pro via Google
+    anthropic:claude-sonnet-4-5-20251101 Claude Sonnet 4.5 via Anthropic
+    anthropic:claude-opus-4-5-20251101  Claude Opus 4.5 via Anthropic
+
+  Via OpenRouter (any model):
+    openrouter:openai/gpt-5.2           GPT-5.2 via OpenRouter
+    openrouter:anthropic/claude-opus-4.5 Opus via OpenRouter
+    qwen/qwen3-next-80b-a3b-instruct    Qwen 3 80B (default)
+
 Environment:
-  OPENROUTER_API_KEY        Required API key for OpenRouter
+  OPENROUTER_API_KEY              For OpenRouter models (tested)
+  OPENAI_API_KEY                  For openai:* models
+  ANTHROPIC_API_KEY               For anthropic:* models
+  GOOGLE_GENERATIVE_AI_API_KEY    For google:* models
 
 Examples:
   npx debate
+  npx debate --prompt "5 debates between an atheist and a Catholic about morality"
   npx debate --speaker1 "Alex Epstein" --speaker2 "Al Gore" --issues "climate,energy"
   npx debate --speaker1 "Elon Musk" --speaker2 "Bill Gates" --debates 5 --autopilot
 
@@ -50,6 +70,7 @@ import { render } from "ink";
 import { App } from "./app.js";
 
 interface CliArgs {
+  prompt?: string;
   speaker1?: string;
   speaker2?: string;
   seed1?: string;
@@ -64,6 +85,7 @@ interface CliArgs {
   selfImprove?: boolean;
   model?: string;
   narrate?: boolean;
+  judgeSeed?: string;
 }
 
 function parseArgs(rawArgs: string[]): CliArgs {
@@ -74,6 +96,10 @@ function parseArgs(rawArgs: string[]): CliArgs {
     const nextArg = rawArgs[i + 1];
 
     switch (arg) {
+      case "--prompt":
+        result.prompt = nextArg;
+        i++;
+        break;
       case "--speaker1":
         result.speaker1 = nextArg;
         i++;
@@ -131,6 +157,13 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--narrate":
         result.narrate = true;
+        break;
+      case "--no-narrate":
+        result.narrate = false;
+        break;
+      case "--judge-seed":
+        result.judgeSeed = nextArg;
+        i++;
         break;
     }
   }

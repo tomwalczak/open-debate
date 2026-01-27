@@ -1,4 +1,4 @@
-import { DEFAULT_MODEL_ID } from "./openrouter.js";
+import { DEFAULT_MODEL_ID } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import { generateId } from "../utils/id.js";
 
@@ -8,11 +8,16 @@ export function generateInitialPrompt(name: string): string {
 Be concise. Keep your response under 300 words.`;
 }
 
-export function createJudgeAgent(modelId: string = DEFAULT_MODEL_ID): AgentConfig {
+export const DEFAULT_JUDGE_PROMPT = `You are an impartial debate judge. Analyze this debate and declare who won. Penalize verbosity.`;
+
+export function createJudgeAgent(
+  modelId: string = DEFAULT_MODEL_ID,
+  customPrompt?: string
+): AgentConfig {
   return {
     id: generateId(),
     name: "Judge",
-    systemPrompt: `You are an impartial debate judge. Analyze this debate and declare who won. Penalize verbosity.`,
+    systemPrompt: customPrompt || DEFAULT_JUDGE_PROMPT,
     modelId,
     dirPath: "",
   };

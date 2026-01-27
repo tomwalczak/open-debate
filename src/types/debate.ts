@@ -17,6 +17,7 @@ export interface MatchConfig {
   seed1?: string;  // User instructions for speaker 1's initial prompt
   seed2?: string;  // User instructions for speaker 2's initial prompt
   narrate?: boolean;  // Enable real-time narrator commentary
+  judgeSeed?: string;  // Instructions for judge persona
 }
 
 export interface MatchState {
@@ -126,9 +127,9 @@ export const DEFAULT_WIZARD_STATE: WizardState = {
   speaker2Name: "",
   speaker1Persona: "",
   speaker2Persona: "",
-  roundsPerQuestion: 3,
+  roundsPerQuestion: 5,
   questionCount: 5,
   debateCount: 1,
   issueFocus: [],
-  narrate: true, // Default to narrator on
+  narrate: false, // Default to narrator off
 };

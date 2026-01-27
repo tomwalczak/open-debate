@@ -1,10 +1,10 @@
 import { streamText } from "ai";
-import { getModel } from "./openrouter.js";
+import { getModel } from "./model-provider.js";
 import { createJudgeAgent } from "./agent-factory.js";
 import { judgeQuestion, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
 import type { MatchSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
-import { createMatch, saveDebateResult } from "./match-storage.js";
+import { createMatch, saveDebateResult, type CreateMatchResult } from "./match-storage.js";
 import { generateQuestions } from "./question-generator.js";
 import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
@@ -347,10 +347,11 @@ async function runSingleDebate(
   match: MatchState,
   debateNumber: number,
   questions: string[],
-  callbacks: MatchCallbacks
+  callbacks: MatchCallbacks,
+  judgePrompt: string
 ): Promise<{ questionResults: QuestionResult[]; speaker1Wins: number; speaker2Wins: number }> {
   const { firstSpeaker, secondSpeaker, config } = match;
-  const judge = createJudgeAgent(config.modelId);
+  const judge = createJudgeAgent(config.modelId, judgePrompt);
   const pool = new QuestionPool(MAX_CONCURRENT_QUESTIONS);
 
   // Run all questions in parallel, alternating speaker order to balance second-speaker advantage
@@ -404,7 +405,7 @@ export async function runMatch(
   forkFromMatchId?: string
 ): Promise<MatchState> {
   // Create match (async if seeds need to be generated)
-  const match = await createMatch(config, forkFromMatchId);
+  const { match, judgePrompt } = await createMatch(config, forkFromMatchId);
   callbacks.onMatchStart(match);
 
   try {
@@ -427,7 +428,8 @@ export async function runMatch(
         match,
         debateNum,
         questions,
-        callbacks
+        callbacks,
+        judgePrompt
       );
 
       callbacks.onDebateEnd(debateNum, speaker1Wins, speaker2Wins);

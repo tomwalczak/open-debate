@@ -1,12 +1,12 @@
 import * as fs from "fs";
 import * as path from "path";
 import { generateText } from "ai";
-import { getModel } from "./openrouter.js";
+import { getModel } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { MatchConfig, MatchState, DebateResult, QuestionResult } from "../types/debate.js";
 import type { FinalTally } from "../types/judge.js";
 import { generateId } from "../utils/id.js";
-import { generateInitialPrompt, createJudgeAgent } from "./agent-factory.js";
+import { generateInitialPrompt, DEFAULT_JUDGE_PROMPT } from "./agent-factory.js";
 
 const MATCHES_DIR = "matches";
 
@@ -110,7 +110,7 @@ export async function generatePromptFromLearnings(
   overageChars?: number
 ): Promise<string> {
   // Check if there's meaningful content beyond just the header
-  const hasStrategicBrief = learnings.includes("<strategic-brief>");
+  const hasStrategicBrief = learnings.includes("<strategic-brief");
   const hasDebateHistory = /^## \d{4}-\d{2}-\d{2}/m.test(learnings); // Has dated debate sections
   const hasContent = hasStrategicBrief || hasDebateHistory;
 
@@ -174,6 +174,25 @@ ${seed}
 `;
 }
 
+/**
+ * Generates a judge prompt from optional seed instructions.
+ * Uses the same Strategic Brief pattern as debaters.
+ */
+export async function generateJudgePrompt(
+  seed: string | undefined,
+  modelId: string
+): Promise<string> {
+  if (!seed) {
+    return DEFAULT_JUDGE_PROMPT;
+  }
+
+  // Create learnings with Strategic Brief
+  const learnings = `# Judge - Criteria\n\n` + formatStrategicBrief(seed);
+
+  // Generate prompt using same pattern as debaters
+  return generatePromptFromLearnings("Judge", learnings, modelId);
+}
+
 function replaceStrategicBrief(learnings: string, name: string, newSeed: string): string {
   // Remove existing Strategic Brief section if present
   const briefRegex = /## Strategic Brief\s*\n\s*<strategic-brief[^>]*>[\s\S]*?<\/strategic-brief>\s*\n---\s*\n*/;
@@ -193,10 +212,15 @@ function replaceStrategicBrief(learnings: string, name: string, newSeed: string)
   }
 }
 
+export interface CreateMatchResult {
+  match: MatchState;
+  judgePrompt: string;
+}
+
 export async function createMatch(
   config: MatchConfig,
   forkFromMatchId?: string
-): Promise<MatchState> {
+): Promise<CreateMatchResult> {
   const matchId = generateMatchId(config.speaker1Name, config.speaker2Name);
   const matchDir = path.join(MATCHES_DIR, matchId);
   const agentsDir = path.join(matchDir, "agents");
@@ -300,6 +324,21 @@ export async function createMatch(
     dirPath: speaker2Dir,
   };
 
+  // Create judge directory and save prompt
+  const judgeDir = path.join(matchDir, "judge");
+  ensureDir(judgeDir);
+
+  const judgePrompt = await generateJudgePrompt(config.judgeSeed, config.modelId);
+  fs.writeFileSync(path.join(judgeDir, "prompt.md"), judgePrompt);
+
+  // Save seed instructions if provided
+  if (config.judgeSeed) {
+    fs.writeFileSync(
+      path.join(judgeDir, "seed.md"),
+      `# Judge Seed Instructions\n\n${config.judgeSeed}`
+    );
+  }
+
   // Save match config
   const matchState: MatchState = {
     id: matchId,
@@ -316,7 +355,7 @@ export async function createMatch(
     JSON.stringify(config, null, 2)
   );
 
-  return matchState;
+  return { match: matchState, judgePrompt };
 }
 
 function findAgentDirBySlug(agentsDir: string, slug: string): string | null {
