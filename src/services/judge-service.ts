@@ -1,6 +1,6 @@
 import { generateObject, generateText } from "ai";
 import { z } from "zod";
-import { getModel, DEFAULT_MODEL_ID } from "./openrouter.js";
+import { getModel, DEFAULT_MODEL_ID } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { Exchange, DebateResult } from "../types/debate.js";
 import type { JudgeVerdict, FinalTally, MatchSummary } from "../types/judge.js";
@@ -105,7 +105,7 @@ export async function generateMatchSummary(
 
   const { text } = await generateText({
     model: getModel(modelId),
-    prompt: `You are a debate analyst. Write a concise, high-signal summary (4-6 sentences) of this ${debates.length}-debate match.
+    prompt: `You are a debate analyst writing for an intelligent general audience who may not be domain experts on this topic.
 
 ${speaker1Name} vs ${speaker2Name}
 Final Score: ${speaker1Name} ${totalS1} - ${totalS2} ${speaker2Name}
@@ -113,7 +113,18 @@ Winner: ${overallWinner}
 
 ${debateSummaries}
 
-Cover: the trajectory (momentum shifts, comebacks), the key arguments that made the difference, and why the winner won. Write it as one flowing paragraph. Use only "${speaker1Name}" and "${speaker2Name}" as names.`,
+Write a self-contained analysis that someone who didn't watch the debate can follow. Your goal is to help readers understand not just who won, but what was actually at stake and what they should take away from seeing both sides argue their best case.
+
+Cover these areas (use your judgment on structure and format - prose, bullets, or a mix as appropriate):
+
+- Context: What was the core question being debated? What real-world stakes or decisions does this connect to?
+- Key concepts: If there are technical terms or frameworks that are central to the arguments, briefly explain them in plain language.
+- The strongest arguments each side made: Be specific about the actual claims and evidence, not generic debate commentary.
+- Blind spots: What did each side miss, concede too easily, or fail to address?
+- Why the winner won: What was the decisive factor - evidence quality, moral framing, addressing counterarguments, or something else?
+- The takeaway: What should a thoughtful person conclude about this issue after seeing both sides make their case?
+
+Write in clear, jargon-free language. Be analytical and specific. Use "${speaker1Name}" and "${speaker2Name}" as names throughout.`,
   });
 
   return { summary: text.trim() };

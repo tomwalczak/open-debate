@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import type { DebateState, QuestionExecutionState } from "../types/debate.js";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
-import { QuestionPanel } from "./QuestionPanel.js";
 import { FinalTally } from "./FinalTally.js";
 import { HumanFeedback } from "./HumanFeedback.js";
+import { QuestionTabBar } from "./QuestionTabBar.js";
+import { ExpandedQuestionView } from "./ExpandedQuestionView.js";
 
 interface ParallelDebateViewProps {
   state: DebateState;
@@ -26,10 +27,32 @@ export function ParallelDebateView({
     finalTally,
   } = state;
 
+  // Selected question index for tabbed view
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+
   // Convert map to sorted array
   const sortedQuestionStates = Array.from(questionStates.values()).sort(
     (a, b) => a.questionIndex - b.questionIndex
   );
+
+  // Auto-select first active question when selection becomes invalid or pending
+  useEffect(() => {
+    if (sortedQuestionStates.length === 0) return;
+
+    const currentSelected = sortedQuestionStates[selectedQuestionIndex];
+
+    // If current selection is valid and not pending, keep it
+    if (currentSelected && currentSelected.status !== "pending") return;
+
+    // Find first active (debating/judging) question
+    const firstActiveIndex = sortedQuestionStates.findIndex(
+      (qs) => qs.status === "debating" || qs.status === "judging"
+    );
+
+    if (firstActiveIndex !== -1 && firstActiveIndex !== selectedQuestionIndex) {
+      setSelectedQuestionIndex(firstActiveIndex);
+    }
+  }, [sortedQuestionStates, selectedQuestionIndex]);
 
   // Calculate overall progress
   const totalExchanges = config.questions.length * config.roundsPerQuestion * 2;
@@ -38,18 +61,10 @@ export function ParallelDebateView({
     0
   );
 
-  // Separate active and completed questions
-  const activeQuestions = sortedQuestionStates.filter(
-    (qs) => qs.status === "debating" || qs.status === "judging"
-  );
-  const completedQuestions = sortedQuestionStates.filter(
+  // Count completed questions for header
+  const completedCount = sortedQuestionStates.filter(
     (qs) => qs.status === "complete"
-  );
-  const pendingQuestions = sortedQuestionStates.filter(
-    (qs) => qs.status === "pending"
-  );
-
-  const completedCount = completedQuestions.length;
+  ).length;
   const totalQuestions = config.questions.length;
 
   return (
@@ -79,53 +94,25 @@ export function ParallelDebateView({
         label="Progress:"
       />
 
-      {/* Active Questions */}
-      {activeQuestions.length > 0 && (
+      {/* Question Tab Bar and Expanded View */}
+      {sortedQuestionStates.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text bold color="yellow">
-            Active Questions ({activeQuestions.length}/{Math.min(5, totalQuestions - completedCount)})
-          </Text>
-          <Box flexDirection="column" marginTop={1}>
-            {activeQuestions.map((qs) => (
-              <QuestionPanel
-                key={qs.questionIndex}
-                state={qs}
-                speaker1Id={firstSpeaker.id}
-                speaker1Name={firstSpeaker.name}
-                speaker2Name={secondSpeaker.name}
-                totalRounds={config.roundsPerQuestion}
-              />
-            ))}
-          </Box>
-        </Box>
-      )}
-
-      {/* Pending indicator */}
-      {pendingQuestions.length > 0 && (
-        <Box marginTop={1}>
-          <Text color="gray">
-            Queued: {pendingQuestions.length} question{pendingQuestions.length !== 1 ? "s" : ""} waiting...
-          </Text>
-        </Box>
-      )}
-
-      {/* Completed Questions Summary */}
-      {completedQuestions.length > 0 && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text bold color="green">Completed:</Text>
-          <Box flexWrap="wrap" marginTop={1}>
-            {completedQuestions.map((qs, i) => (
-              <Box key={qs.questionIndex} marginRight={2}>
-                <Text>
-                  Q{qs.questionIndex + 1}{" "}
-                  <Text color={qs.verdict?.winnerId === firstSpeaker.id ? "blue" : "magenta"}>
-                    {qs.verdict ? (qs.verdict.winnerId === firstSpeaker.id ? firstSpeaker.name : secondSpeaker.name) : "?"}
-                  </Text>
-                  {i < completedQuestions.length - 1 ? " |" : ""}
-                </Text>
-              </Box>
-            ))}
-          </Box>
+          <QuestionTabBar
+            questionStates={sortedQuestionStates}
+            activeIndex={selectedQuestionIndex}
+            onSwitch={setSelectedQuestionIndex}
+            totalRounds={config.roundsPerQuestion}
+          />
+          {sortedQuestionStates[selectedQuestionIndex] && (
+            <ExpandedQuestionView
+              state={sortedQuestionStates[selectedQuestionIndex]}
+              speaker1Id={firstSpeaker.id}
+              speaker1Name={firstSpeaker.name}
+              speaker2Name={secondSpeaker.name}
+              totalRounds={config.roundsPerQuestion}
+              totalQuestions={totalQuestions}
+            />
+          )}
         </Box>
       )}
 

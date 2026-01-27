@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getModel } from "./openrouter.js";
+import { getModel } from "./model-provider.js";
 
 const MAX_DISPLAY_NAME_LENGTH = 25;
 

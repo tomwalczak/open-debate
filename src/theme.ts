@@ -10,10 +10,9 @@
 
 export const theme = {
   // === SPEAKERS ===
-  // Speaker 1 is always brighter/more prominent
-  speaker1: "white",
-  // Speaker 2 is dimmer to create visual hierarchy
-  speaker2: "gray",
+  // Distinct colors that work on both light and dark backgrounds
+  speaker1: "cyan",
+  speaker2: "magenta",
 
   // === ACCENT ===
   // Primary accent for active/focus states, narrator text, progress indicators

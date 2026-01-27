@@ -1,10 +1,13 @@
-import React from "react";
-import { Box, Text } from "ink";
+import React, { useRef, useEffect } from "react";
+import { Box, Text, useInput, useStdout } from "ink";
+import { ScrollView, type ScrollViewRef } from "ink-scroll-view";
 import type { QuestionExecutionState } from "../types/debate.js";
 import { ExchangeMessage } from "./ExchangeMessage.js";
 import { JudgeVerdict } from "./JudgeVerdict.js";
 import { Spinner } from "./Spinner.js";
 import { theme } from "../theme.js";
+
+const isTTY = process.stdin.isTTY;
 
 interface ExpandedQuestionViewProps {
   state: QuestionExecutionState;
@@ -36,11 +39,30 @@ export function ExpandedQuestionView({
     isNarratorStreaming,
   } = state;
 
-  // Rolling window: show only last N exchanges to prevent overflow
-  // With ~300 char truncation per message, 4 exchanges fits nicely
-  const maxExchanges = 4;
-  const visibleExchanges = exchanges.slice(-maxExchanges);
-  const hiddenCount = exchanges.length - visibleExchanges.length;
+  const scrollRef = useRef<ScrollViewRef>(null);
+  const { stdout } = useStdout();
+
+  // Handle terminal resize
+  useEffect(() => {
+    const handleResize = () => scrollRef.current?.remeasure();
+    stdout?.on("resize", handleResize);
+    return () => {
+      stdout?.off("resize", handleResize);
+    };
+  }, [stdout]);
+
+  // Scroll controls (up/down arrows) - only in TTY mode
+  if (isTTY) {
+    useInput((input, key) => {
+      if (key.upArrow) scrollRef.current?.scrollBy(-3);
+      if (key.downArrow) scrollRef.current?.scrollBy(3);
+    });
+  }
+
+  // Auto-scroll to bottom when new exchanges are added (not on every streaming char)
+  useEffect(() => {
+    scrollRef.current?.scrollToBottom();
+  }, [exchanges.length]);
 
   const currentSpeakerName =
     currentSpeakerId === speaker1Id ? speaker1Name : speaker2Name;
@@ -77,97 +99,101 @@ export function ExpandedQuestionView({
       }
       paddingX={1}
       marginBottom={1}
+      height={32}
     >
       {/* Header: Question number + round indicator */}
       <Box justifyContent="space-between" marginBottom={1}>
         <Text bold>
           Q{questionIndex + 1} of {totalQuestions}
         </Text>
-        {getRoundIndicator()}
+        <Box gap={2}>
+          <Text dimColor>↑↓ scroll</Text>
+          {getRoundIndicator()}
+        </Box>
       </Box>
 
-      {/* Full question text */}
-      <Box marginBottom={1}>
-        <Text wrap="wrap" color={theme.accent}>
-          "{question}"
-        </Text>
-      </Box>
-
-      {/* Transcript: visible exchanges (rolling window) */}
-      {visibleExchanges.length > 0 && (
-        <Box flexDirection="column" marginBottom={1}>
-          {hiddenCount > 0 && (
-            <Text dimColor>... {hiddenCount} earlier exchange(s) ...</Text>
-          )}
-          {visibleExchanges.map((exchange) => (
-            <ExchangeMessage
-              key={exchange.id}
-              exchange={exchange}
-              speaker1Id={speaker1Id}
-            />
-          ))}
-        </Box>
-      )}
-
-      {/* Live streaming text (full, not truncated) */}
-      {status === "debating" && currentSpeakerId && (
-        <Box flexDirection="column" marginBottom={1}>
-          <Box>
-            <Text color={speakerColor} bold>
-              {currentSpeakerName}:{" "}
-            </Text>
-            {(streamingText || isNarratorStreaming) && <Spinner />}
-            {!streamingText && !isNarratorStreaming && !narratorSummary && (
-              <Text dimColor>thinking...</Text>
-            )}
-          </Box>
-          {isNarratorStreaming ? (
-            <Box marginLeft={2}>
-              <Text wrap="wrap" color={theme.accent}>
-                {streamingText || "..."}
-              </Text>
-            </Box>
-          ) : streamingText ? (
-            <Box marginLeft={2}>
-              <Text wrap="wrap">{streamingText}</Text>
-            </Box>
-          ) : null}
-        </Box>
-      )}
-
-      {/* Narrator summary when available (after exchange completes) */}
-      {narratorSummary && !isNarratorStreaming && !streamingText && (
-        <Box marginBottom={1} marginLeft={2}>
-          <Text wrap="wrap" color={theme.accent} italic>
-            {narratorSummary}
+      {/* Scrollable content area */}
+      <ScrollView ref={scrollRef} flexGrow={1}>
+        {/* Full question text */}
+        <Box marginBottom={1}>
+          <Text wrap="wrap" color={theme.accent}>
+            "{question}"
           </Text>
         </Box>
-      )}
 
-      {/* Judging indicator */}
-      {status === "judging" && (
-        <Box marginBottom={1}>
-          <Spinner label="Judge evaluating arguments..." />
-        </Box>
-      )}
+        {/* Transcript: all exchanges */}
+        {exchanges.length > 0 && (
+          <Box flexDirection="column" marginBottom={1}>
+            {exchanges.map((exchange) => (
+              <ExchangeMessage
+                key={exchange.id}
+                exchange={exchange}
+                speaker1Id={speaker1Id}
+              />
+            ))}
+          </Box>
+        )}
 
-      {/* Pending indicator */}
-      {status === "pending" && (
-        <Box marginBottom={1}>
-          <Text dimColor>Waiting to start...</Text>
-        </Box>
-      )}
+        {/* Live streaming text (full, not truncated) */}
+        {status === "debating" && currentSpeakerId && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Box>
+              <Text color={speakerColor} bold>
+                {currentSpeakerName}:{" "}
+              </Text>
+              {(streamingText || isNarratorStreaming) && <Spinner />}
+              {!streamingText && !isNarratorStreaming && !narratorSummary && (
+                <Text dimColor>thinking...</Text>
+              )}
+            </Box>
+            {isNarratorStreaming ? (
+              <Box marginLeft={2}>
+                <Text wrap="wrap" color={theme.accent}>
+                  {streamingText || "..."}
+                </Text>
+              </Box>
+            ) : streamingText ? (
+              <Box marginLeft={2}>
+                <Text wrap="wrap">{streamingText}</Text>
+              </Box>
+            ) : null}
+          </Box>
+        )}
 
-      {/* Verdict when complete */}
-      {status === "complete" && verdict && (
-        <JudgeVerdict
-          verdict={verdict}
-          questionNumber={questionIndex + 1}
-          speaker1Id={speaker1Id}
-          speaker1Name={speaker1Name}
-          speaker2Name={speaker2Name}
-        />
-      )}
+        {/* Narrator summary when available (after exchange completes) */}
+        {narratorSummary && !isNarratorStreaming && !streamingText && (
+          <Box marginBottom={1} marginLeft={2}>
+            <Text wrap="wrap" color={theme.accent} italic>
+              {narratorSummary}
+            </Text>
+          </Box>
+        )}
+
+        {/* Judging indicator */}
+        {status === "judging" && (
+          <Box marginBottom={1}>
+            <Spinner label="Judge evaluating arguments..." />
+          </Box>
+        )}
+
+        {/* Pending indicator */}
+        {status === "pending" && (
+          <Box marginBottom={1}>
+            <Text dimColor>Waiting to start...</Text>
+          </Box>
+        )}
+
+        {/* Verdict when complete */}
+        {status === "complete" && verdict && (
+          <JudgeVerdict
+            verdict={verdict}
+            questionNumber={questionIndex + 1}
+            speaker1Id={speaker1Id}
+            speaker1Name={speaker1Name}
+            speaker2Name={speaker2Name}
+          />
+        )}
+      </ScrollView>
     </Box>
   );
 }

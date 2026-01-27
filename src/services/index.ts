@@ -1,4 +1,4 @@
-export { getModel, DEFAULT_MODEL_ID } from "./openrouter.js";
+export { getModel, DEFAULT_MODEL_ID, MODEL_REGISTRY, type ModelInfo } from "./model-provider.js";
 export { generateInitialPrompt, createJudgeAgent } from "./agent-factory.js";
 export { updateAgentAfterDebate } from "./agent-learner.js";
 export { generateQuestions, refineQuestions } from "./question-generator.js";
@@ -13,3 +13,4 @@ export {
 } from "./match-storage.js";
 export { runMatch, type MatchCallbacks } from "./match-engine.js";
 export { narrateExchange } from "./narrator.js";
+export { parseMatchPrompt, type ParsedMatchConfig } from "./prompt-parser.js";

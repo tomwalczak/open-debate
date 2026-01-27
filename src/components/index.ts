@@ -8,6 +8,8 @@ export { FinalTally } from "./FinalTally.js";
 export { DebateView } from "./DebateView.js";
 export { TabBar } from "./TabBar.js";
 export { QuestionPanel } from "./QuestionPanel.js";
+export { QuestionTabBar } from "./QuestionTabBar.js";
+export { ExpandedQuestionView } from "./ExpandedQuestionView.js";
 export { ParallelDebateView } from "./ParallelDebateView.js";
 export { MatchView } from "./MatchView.js";
 export * from "./Wizard/index.js";

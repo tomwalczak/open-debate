@@ -1,5 +1,5 @@
 import { streamText } from "ai";
-import { getModel } from "./openrouter.js";
+import { getModel } from "./model-provider.js";
 import { createAgent } from "./agent-storage.js";
 import { createJudgeAgent } from "./agent-factory.js";
 import { judgeQuestion, calculateFinalTally } from "./judge-service.js";

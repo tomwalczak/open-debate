@@ -1,21 +1,16 @@
-import React from "react";
+import React, { memo } from "react";
 import { Box, Text } from "ink";
 import type { Exchange } from "../types/debate.js";
+import { theme } from "../theme.js";
 
 interface ExchangeMessageProps {
   exchange: Exchange;
   speaker1Id: string;
-  maxChars?: number;
 }
 
-export function ExchangeMessage({ exchange, speaker1Id, maxChars = 300 }: ExchangeMessageProps) {
+export const ExchangeMessage = memo(function ExchangeMessage({ exchange, speaker1Id }: ExchangeMessageProps) {
   const isFirstSpeaker = exchange.speakerId === speaker1Id;
-  const color = isFirstSpeaker ? "blue" : "magenta";
-
-  // Truncate long messages to bound vertical space
-  const message = exchange.message.length > maxChars
-    ? exchange.message.slice(0, maxChars) + "..."
-    : exchange.message;
+  const color = isFirstSpeaker ? theme.speaker1 : theme.speaker2;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -23,8 +18,8 @@ export function ExchangeMessage({ exchange, speaker1Id, maxChars = 300 }: Exchan
         {exchange.speakerName} (Round {exchange.roundNumber})
       </Text>
       <Box marginLeft={2}>
-        <Text wrap="wrap">{message}</Text>
+        <Text wrap="wrap">{exchange.message}</Text>
       </Box>
     </Box>
   );
-}
+});

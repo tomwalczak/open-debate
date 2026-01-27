@@ -1,5 +1,5 @@
 import { streamText } from "ai";
-import { getModel } from "./openrouter.js";
+import { getModel } from "./model-provider.js";
 import type { Exchange } from "../types/debate.js";
 
 export async function narrateExchange(

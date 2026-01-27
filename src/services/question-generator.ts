@@ -1,6 +1,6 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { getModel, DEFAULT_MODEL_ID } from "./openrouter.js";
+import { getModel, DEFAULT_MODEL_ID } from "./model-provider.js";
 
 const questionsSchema = z.object({
   questions: z.array(z.string()).describe("List of propositional debate questions"),
