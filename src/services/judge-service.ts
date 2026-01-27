@@ -105,7 +105,7 @@ export async function generateMatchSummary(
 
   const { text } = await generateText({
     model: getModel(modelId),
-    prompt: `You are a debate analyst writing for an intelligent general audience who may not be domain experts on this topic.
+    prompt: `You are a debate analyst. The reader is about to participate in a 4-hour podcast debate on this topic and needs to quickly understand the landscape of arguments.
 
 ${speaker1Name} vs ${speaker2Name}
 Final Score: ${speaker1Name} ${totalS1} - ${totalS2} ${speaker2Name}
@@ -113,21 +113,21 @@ Winner: ${overallWinner}
 
 ${debateSummaries}
 
-Write a self-contained analysis (MAX 600 WORDS) that someone who didn't watch the debate can follow. Help readers understand what was at stake and what to take away.
+Write a self-contained analysis (MAX 600 WORDS) that maps the argument landscape. Someone who didn't watch the debate should be able to follow. The reader needs clarity on the strongest arguments, where the fault lines lie, and what they should investigate further.
 
 Cover:
-- Context: What core question was debated? What real-world stakes?
-- Key concepts: Briefly explain any technical terms central to the arguments.
-- Strongest arguments each side made: Be specific about actual claims, not generic commentary.
-- Blind spots: What did each side miss or concede too easily?
-- Why the winner won: What was the decisive factor?
-- The takeaway: What should a thoughtful person conclude?
+- Strongest arguments: What were the most compelling arguments made? Be specific about the actual claims and reasoning.
+- Load-bearing claims: What are the core propositions each side depends on? State them as clear, falsifiable claims.
+- Key tensions: Where do the two sides fundamentally disagree? What would resolve the disagreement?
+- Blindspots and gaps: What did neither side address? What assumptions went unchallenged?
+- Patterns: Did certain argument types dominate? Were there recurring weaknesses?
+- Further investigation: What specific questions should the reader research before their debate?
 
-IMPORTANT FORMATTING RULES:
-- Do NOT use markdown (no **, no ##, no bullet points with -)
-- Write in plain prose paragraphs
-- Use line breaks between sections for readability
-- Keep it concise and analytical
+FORMATTING:
+- Write in propositional full sentences. State claims directly.
+- No markdown (no **, no ##, no bullet points)
+- Plain prose paragraphs with line breaks between sections
+- Be specific and analytical, not generic
 
 Use "${speaker1Name}" and "${speaker2Name}" as names throughout.`,
   });
