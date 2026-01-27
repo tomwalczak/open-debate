@@ -125,28 +125,41 @@ export async function generatePromptFromLearnings(
 
   const strategicBriefInstruction = hasStrategicBrief
     ? `
-IMPORTANT: This agent has a <strategic-brief> section. This contains the operator's core instructions
-for how this debater should approach arguments. Treat the Strategic Brief as the PRIMARY directive -
-all learned behaviors from debate history should REFINE and SUPPORT the Strategic Brief, never override it.
+# Strategic Brief Priority
+
+The learnings file contains a <strategic-brief> section with the operator's core instructions.
+Treat the Strategic Brief as the PRIMARY directive - all learned behaviors from debate history
+should REFINE and SUPPORT the Strategic Brief, never override it.
 `
     : "";
 
   const { text } = await generateText({
     model: getModel(modelId),
-    prompt: `You are creating a system prompt for "${name}" who will participate in public debates.
+    prompt: `# Task
 
-Here is this agent's learnings file (containing their Strategic Brief and/or debate history):
+Generate a system prompt for "${name}" who will participate in public debates.
 
-${learnings}
-${strategicBriefInstruction}
-Generate a focused system prompt (under ${PROMPT_MAX_LENGTH} characters) that:
-- Embodies ${name}'s perspective and expertise
+# Requirements
+
+The generated prompt must:
+- Be under ${PROMPT_MAX_LENGTH} characters
+- Embody ${name}'s perspective and expertise
+- Provide clear, actionable debate strategy
 - If a Strategic Brief exists: treat it as the core directive that shapes all strategy
 - If debate history exists: incorporate lessons from wins/losses to refine tactics
-- Provides clear, actionable debate strategy
-- Ends with: "Be concise. Keep your response under 300 words."
+- End with: "Be concise. Keep your response under 300 words."
+${strategicBriefInstruction}
+# Output Format
+
+Output ONLY the system prompt text. No commentary, no markdown, no quotes.
 ${overageNote}
-Output ONLY the system prompt, nothing else.`,
+# Agent's Learnings File
+
+Study this carefully - it contains the Strategic Brief (core directives) and/or debate history (what worked/failed):
+
+${learnings}
+
+Now generate the system prompt for ${name}:`,
   });
 
   const newPrompt = text.trim();
