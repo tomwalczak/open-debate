@@ -341,6 +341,20 @@ export async function createMatch(
   const judgeDir = path.join(matchDir, "judge");
   ensureDir(judgeDir);
 
+  // Create logs directory
+  const logsDir = path.join(matchDir, "logs");
+  ensureDir(logsDir);
+
+  // Log match creation
+  logMatchEvent(matchDir, "MATCH_CREATED", "Match initialized", {
+    matchId,
+    speaker1: config.speaker1Name,
+    speaker2: config.speaker2Name,
+    totalDebates: config.totalDebates,
+    questionsPerDebate: config.questionsPerDebate,
+    modelId: config.modelId
+  });
+
   const judgePrompt = await generateJudgePrompt(config.judgeSeed, config.modelId);
   fs.writeFileSync(path.join(judgeDir, "prompt.md"), judgePrompt);
 
@@ -465,6 +479,74 @@ export function readAgentLearnings(agent: AgentConfig): string {
     return "";
   }
   return fs.readFileSync(learningsPath, "utf-8");
+}
+
+/**
+ * Logs an event to the match's logs directory.
+ * Creates timestamped log entries for tracking match progress.
+ */
+export function logMatchEvent(
+  matchDirPath: string,
+  eventType: string,
+  message: string,
+  data?: Record<string, unknown>
+): void {
+  const logsDir = path.join(matchDirPath, "logs");
+  ensureDir(logsDir);
+
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    timestamp,
+    eventType,
+    message,
+    ...(data && { data })
+  };
+
+  // Append to events.jsonl (JSON Lines format)
+  const logFile = path.join(logsDir, "events.jsonl");
+  fs.appendFileSync(logFile, JSON.stringify(logEntry) + "\n");
+}
+
+/**
+ * Logs an error to the match's logs directory.
+ * Captures full error details including stack trace.
+ */
+export function logMatchError(
+  matchDirPath: string,
+  error: Error | unknown,
+  context: string,
+  additionalData?: Record<string, unknown>
+): void {
+  const logsDir = path.join(matchDirPath, "logs");
+  ensureDir(logsDir);
+
+  const timestamp = new Date().toISOString();
+  const errorObj = error instanceof Error ? error : new Error(String(error));
+
+  const errorEntry = {
+    timestamp,
+    context,
+    error: {
+      name: errorObj.name,
+      message: errorObj.message,
+      stack: errorObj.stack
+    },
+    ...(additionalData && { data: additionalData })
+  };
+
+  // Append to errors.jsonl
+  const errorFile = path.join(logsDir, "errors.jsonl");
+  fs.appendFileSync(errorFile, JSON.stringify(errorEntry) + "\n");
+
+  // Also log to events
+  logMatchEvent(matchDirPath, "ERROR", `${context}: ${errorObj.message}`, additionalData);
+}
+
+/**
+ * Gets the logs directory path for a match.
+ */
+export function getLogsDir(matchDirPath: string): string {
+  return path.join(matchDirPath, "logs");
 }
 
 export function saveAgentPrompt(agent: AgentConfig): void {

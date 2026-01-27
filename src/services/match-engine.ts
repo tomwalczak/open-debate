@@ -4,7 +4,7 @@ import { createJudgeAgent } from "./agent-factory.js";
 import { judgeQuestion, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
 import type { MatchSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
-import { createMatch, saveDebateResult, type CreateMatchResult } from "./match-storage.js";
+import { createMatch, saveDebateResult, logMatchEvent, logMatchError, type CreateMatchResult } from "./match-storage.js";
 import { generateQuestions } from "./question-generator.js";
 import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
@@ -410,6 +410,7 @@ export async function runMatch(
 
   try {
     for (let debateNum = 1; debateNum <= config.totalDebates; debateNum++) {
+      logMatchEvent(match.dirPath, "DEBATE_START", `Starting debate ${debateNum}`, { debateNum });
       callbacks.onDebateStart(debateNum);
 
       // Generate questions for this debate
@@ -432,6 +433,11 @@ export async function runMatch(
         judgePrompt
       );
 
+      logMatchEvent(match.dirPath, "DEBATE_END", `Debate ${debateNum} complete`, {
+        debateNum,
+        speaker1Wins,
+        speaker2Wins
+      });
       callbacks.onDebateEnd(debateNum, speaker1Wins, speaker2Wins);
 
       // Learning phase
@@ -466,8 +472,17 @@ export async function runMatch(
       });
     }
   } catch (error) {
+    logMatchError(match.dirPath, error, "Match execution failed", {
+      currentDebate: match.currentDebateNumber,
+      completedDebates: match.completedDebates.length
+    });
     callbacks.onError(error as Error);
   }
+
+  logMatchEvent(match.dirPath, "MATCH_COMPLETE", "Match finished", {
+    completedDebates: match.completedDebates.length,
+    totalDebates: config.totalDebates
+  });
 
   callbacks.onMatchEnd(match);
 
@@ -482,6 +497,7 @@ export async function runMatch(
     callbacks.onMatchSummary(summary);
   } catch (error) {
     // Don't fail the match if summary fails
+    logMatchError(match.dirPath, error, "Failed to generate match summary");
     console.error("Failed to generate match summary:", error);
   }
 
