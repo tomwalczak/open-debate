@@ -107,6 +107,7 @@ export function ParallelDebateView({
             <ExpandedQuestionView
               state={sortedQuestionStates[selectedQuestionIndex]}
               speaker1Id={firstSpeaker.id}
+              speaker2Id={secondSpeaker.id}
               speaker1Name={firstSpeaker.name}
               speaker2Name={secondSpeaker.name}
               totalRounds={config.roundsPerQuestion}

@@ -121,6 +121,7 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
             verdict={qr.verdict!}
             questionNumber={i + 1}
             speaker1Id={firstSpeaker.id}
+            speaker2Id={secondSpeaker.id}
             speaker1Name={firstSpeaker.name}
             speaker2Name={secondSpeaker.name}
           />

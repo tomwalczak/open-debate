@@ -12,6 +12,7 @@ const isTTY = process.stdin.isTTY;
 interface ExpandedQuestionViewProps {
   state: QuestionExecutionState;
   speaker1Id: string;
+  speaker2Id: string;
   speaker1Name: string;
   speaker2Name: string;
   totalRounds: number;
@@ -21,6 +22,7 @@ interface ExpandedQuestionViewProps {
 export function ExpandedQuestionView({
   state,
   speaker1Id,
+  speaker2Id,
   speaker1Name,
   speaker2Name,
   totalRounds,
@@ -189,6 +191,7 @@ export function ExpandedQuestionView({
             verdict={verdict}
             questionNumber={questionIndex + 1}
             speaker1Id={speaker1Id}
+            speaker2Id={speaker2Id}
             speaker1Name={speaker1Name}
             speaker2Name={speaker2Name}
           />

@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
 import type { MatchState, QuestionExecutionState } from "../types/debate.js";
 import type { MatchSummary } from "../types/judge.js";
+import type { HumanInputContext } from "../services/match-engine.js";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionTabBar } from "./QuestionTabBar.js";
 import { ExpandedQuestionView } from "./ExpandedQuestionView.js";
+import { HumanDebateInput } from "./HumanDebateInput.js";
 import { theme } from "../theme.js";
 
 interface MatchViewProps {
@@ -15,6 +17,8 @@ interface MatchViewProps {
   phase: "init" | "generating" | "debating" | "judging" | "learning" | "complete";
   debateResults: Array<{ speaker1Wins: number; speaker2Wins: number }>;
   matchSummary?: MatchSummary | null;
+  humanInputContext?: HumanInputContext | null;
+  onHumanResponse?: (response: string) => void;
 }
 
 export function MatchView({
@@ -24,6 +28,8 @@ export function MatchView({
   phase,
   debateResults,
   matchSummary,
+  humanInputContext,
+  onHumanResponse,
 }: MatchViewProps) {
   // Selected question index for tabbed view
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
@@ -118,8 +124,20 @@ export function MatchView({
         </Box>
       )}
 
+      {/* Human Input UI */}
+      {humanInputContext && onHumanResponse && (
+        <HumanDebateInput
+          roundNumber={humanInputContext.roundNumber}
+          totalRounds={humanInputContext.totalRounds}
+          question={humanInputContext.question}
+          speakerName={humanInputContext.speakerName}
+          opponentLastMessage={humanInputContext.opponentLastMessage}
+          onSubmit={onHumanResponse}
+        />
+      )}
+
       {/* Debate progress */}
-      {(phase === "debating" || phase === "judging") && (
+      {(phase === "debating" || phase === "judging") && !humanInputContext && (
         <>
           <ProgressBar
             current={completedExchanges}
@@ -140,6 +158,7 @@ export function MatchView({
                 <ExpandedQuestionView
                   state={sortedQuestionStates[selectedQuestionIndex]}
                   speaker1Id={firstSpeaker.id}
+                  speaker2Id={secondSpeaker.id}
                   speaker1Name={firstSpeaker.name}
                   speaker2Name={secondSpeaker.name}
                   totalRounds={config.roundsPerQuestion}

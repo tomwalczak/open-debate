@@ -6,12 +6,18 @@ interface JudgeVerdictProps {
   verdict: JudgeVerdictType;
   questionNumber?: number;
   speaker1Id: string;
+  speaker2Id: string;
   speaker1Name: string;
   speaker2Name: string;
 }
 
-export function JudgeVerdict({ verdict, questionNumber, speaker1Id, speaker1Name, speaker2Name }: JudgeVerdictProps) {
+export function JudgeVerdict({ verdict, questionNumber, speaker1Id, speaker2Id, speaker1Name, speaker2Name }: JudgeVerdictProps) {
   const winnerName = verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name;
+
+  // Substitute IDs with names in reasoning for readability
+  const cleanReasoning = verdict.reasoning
+    .replace(new RegExp(speaker1Id, "g"), speaker1Name)
+    .replace(new RegExp(speaker2Id, "g"), speaker2Name);
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1} marginY={1}>
@@ -27,7 +33,7 @@ export function JudgeVerdict({ verdict, questionNumber, speaker1Id, speaker1Name
       <Box marginTop={1}>
         <Text wrap="wrap">
           <Text color="gray">Reasoning: </Text>
-          {verdict.reasoning}
+          {cleanReasoning}
         </Text>
       </Box>
     </Box>
