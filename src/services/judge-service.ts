@@ -119,7 +119,7 @@ Cover:
 - Strongest arguments: What were the most compelling arguments made? Be specific about the actual claims and reasoning.
 - Load-bearing claims: What are the core propositions each side depends on? State them as clear, falsifiable claims.
 - Key tensions: Where do the two sides fundamentally disagree? What would resolve the disagreement?
-- Blindspots and gaps: What did neither side address? What assumptions went unchallenged?
+- Debater weaknesses: What were each speaker's blind spots? Where did they fail to counter arguments or leave claims undefended? What areas could each improve?
 - Patterns: Did certain argument types dominate? Were there recurring weaknesses?
 - Further investigation: What specific questions should the reader research before their debate?
 
