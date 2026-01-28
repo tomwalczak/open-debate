@@ -10,7 +10,7 @@ import {
   MatchView,
   Spinner,
 } from "./components/index.js";
-import { runMatch, type MatchCallbacks } from "./services/match-engine.js";
+import { runMatch, resumeMatch, type MatchCallbacks } from "./services/match-engine.js";
 import { generateDisplayNames } from "./services/name-generator.js";
 import { parseMatchPrompt, type ParsedMatchConfig } from "./services/prompt-parser.js";
 import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
@@ -32,6 +32,7 @@ export interface AppProps {
     debates?: number;
     autopilot?: boolean;
     forkFrom?: string;
+    resume?: string;
     selfImprove?: boolean;
     model?: string;
     narrate?: boolean;
@@ -98,12 +99,32 @@ export function App({ cliArgs }: AppProps) {
 
   // Handle CLI args for automation mode
   useEffect(() => {
-    if (cliArgs?.prompt) {
+    if (cliArgs?.resume) {
+      handleResumeMatch();
+    } else if (cliArgs?.prompt) {
       handlePromptAutomation();
     } else if (cliArgs?.speaker1 && cliArgs?.speaker2) {
       handleCliAutomation();
     }
   }, []);
+
+  const handleResumeMatch = async () => {
+    if (!cliArgs?.resume) return;
+
+    setIsLoading(true);
+    try {
+      const result = await resumeMatch(cliArgs.resume, callbacks);
+      if (!result) {
+        console.error("Failed to resume match - match not found or invalid:", cliArgs.resume);
+        exit();
+        return;
+      }
+    } catch (error) {
+      console.error("Failed to resume match:", error);
+      exit();
+    }
+    setIsLoading(false);
+  };
 
   const handlePromptAutomation = async () => {
     if (!cliArgs?.prompt) return;
@@ -301,7 +322,7 @@ export function App({ cliArgs }: AppProps) {
 
   // Wizard mode (no CLI args)
   // Show wizard if no CLI automation mode is active
-  if (!cliArgs?.speaker1 && !cliArgs?.prompt && wizard.step !== "ready") {
+  if (!cliArgs?.speaker1 && !cliArgs?.prompt && !cliArgs?.resume && wizard.step !== "ready") {
     return (
       <Box flexDirection="column" padding={1}>
         <Box marginBottom={1}>

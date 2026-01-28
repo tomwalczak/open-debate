@@ -4,7 +4,7 @@ import { createJudgeAgent } from "./agent-factory.js";
 import { judgeQuestion, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
 import type { MatchSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
-import { createMatch, saveDebateResult, logMatchEvent, logMatchError, type CreateMatchResult } from "./match-storage.js";
+import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchForResume, type CreateMatchResult } from "./match-storage.js";
 import { generateQuestions } from "./question-generator.js";
 import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
@@ -410,6 +410,117 @@ export async function runMatch(
 
   try {
     for (let debateNum = 1; debateNum <= config.totalDebates; debateNum++) {
+      logMatchEvent(match.dirPath, "DEBATE_START", `Starting debate ${debateNum}`, { debateNum });
+      callbacks.onDebateStart(debateNum);
+
+      // Generate questions for this debate
+      const questions = await generateQuestions({
+        speaker1Name: config.speaker1Name,
+        speaker2Name: config.speaker2Name,
+        speaker1Persona: config.speaker1Persona,
+        speaker2Persona: config.speaker2Persona,
+        count: config.questionsPerDebate,
+        issueFocus: config.issueFocus || [],
+        modelId: config.modelId,
+      });
+
+      // Run debate
+      const { questionResults, speaker1Wins, speaker2Wins } = await runSingleDebate(
+        match,
+        debateNum,
+        questions,
+        callbacks,
+        judgePrompt
+      );
+
+      logMatchEvent(match.dirPath, "DEBATE_END", `Debate ${debateNum} complete`, {
+        debateNum,
+        speaker1Wins,
+        speaker2Wins
+      });
+      callbacks.onDebateEnd(debateNum, speaker1Wins, speaker2Wins);
+
+      // Learning phase
+      callbacks.onLearning();
+
+      await Promise.all([
+        updateAgentAfterDebate(
+          match.firstSpeaker,
+          questionResults,
+          match.secondSpeaker,
+          match.firstSpeaker.modelId,
+          undefined,
+          config.selfImprove
+        ),
+        updateAgentAfterDebate(
+          match.secondSpeaker,
+          questionResults,
+          match.firstSpeaker,
+          match.secondSpeaker.modelId,
+          undefined,
+          config.selfImprove
+        ),
+      ]);
+
+      // Update match state
+      match.currentDebateNumber = debateNum;
+      match.completedDebates.push({
+        debateNumber: debateNum,
+        questionResults,
+        finalTally: { speaker1Wins, speaker2Wins, ties: config.questionsPerDebate - speaker1Wins - speaker2Wins },
+        completedAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    logMatchError(match.dirPath, error, "Match execution failed", {
+      currentDebate: match.currentDebateNumber,
+      completedDebates: match.completedDebates.length
+    });
+    callbacks.onError(error as Error);
+  }
+
+  logMatchEvent(match.dirPath, "MATCH_COMPLETE", "Match finished", {
+    completedDebates: match.completedDebates.length,
+    totalDebates: config.totalDebates
+  });
+
+  callbacks.onMatchEnd(match);
+
+  // Generate and send match summary
+  try {
+    const summary = await generateMatchSummary(
+      config.speaker1Name,
+      config.speaker2Name,
+      match.completedDebates,
+      config.modelId
+    );
+    callbacks.onMatchSummary(summary);
+  } catch (error) {
+    // Don't fail the match if summary fails
+    logMatchError(match.dirPath, error, "Failed to generate match summary");
+    console.error("Failed to generate match summary:", error);
+  }
+
+  return match;
+}
+
+export async function resumeMatch(
+  matchId: string,
+  callbacks: MatchCallbacks
+): Promise<MatchState | null> {
+  const resumeData = await loadMatchForResume(matchId);
+
+  if (!resumeData) {
+    return null;
+  }
+
+  const { match, judgePrompt, startFromDebate } = resumeData;
+  const { config } = match;
+
+  callbacks.onMatchStart(match);
+
+  try {
+    for (let debateNum = startFromDebate; debateNum <= config.totalDebates; debateNum++) {
       logMatchEvent(match.dirPath, "DEBATE_START", `Starting debate ${debateNum}`, { debateNum });
       callbacks.onDebateStart(debateNum);
 

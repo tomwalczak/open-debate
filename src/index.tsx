@@ -25,6 +25,7 @@ Options:
   --debates <number>        Number of debates to run
   --autopilot               Run debates without human intervention
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
+  --resume <match-id>       Resume an incomplete match from where it left off
   --self-improve            Enable agent self-improvement (default: on)
   --no-self-improve         Disable agent self-improvement
   --model <model>           Model ID (backend:model format, see below)
@@ -82,6 +83,7 @@ interface CliArgs {
   debates?: number;
   autopilot?: boolean;
   forkFrom?: string;
+  resume?: string;
   selfImprove?: boolean;
   model?: string;
   narrate?: boolean;
@@ -143,6 +145,10 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--fork-from":
         result.forkFrom = nextArg;
+        i++;
+        break;
+      case "--resume":
+        result.resume = nextArg;
         i++;
         break;
       case "--self-improve":

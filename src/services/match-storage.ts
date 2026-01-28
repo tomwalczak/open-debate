@@ -554,3 +554,94 @@ export function saveAgentPrompt(agent: AgentConfig): void {
   fs.writeFileSync(promptPath, agent.systemPrompt);
 }
 
+/**
+ * Load an existing match for resuming from where it left off.
+ * Returns the match state with completed debates loaded.
+ */
+export async function loadMatchForResume(
+  matchId: string
+): Promise<{ match: MatchState; judgePrompt: string; startFromDebate: number } | null> {
+  const matchDir = path.join(MATCHES_DIR, matchId);
+
+  if (!fs.existsSync(matchDir)) {
+    return null;
+  }
+
+  // Load config
+  const configPath = path.join(matchDir, "config.json");
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+  const config: MatchConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+
+  // Find agent directories
+  const agentsDir = path.join(matchDir, "agents");
+  const speaker1Slug = nameToSlug(config.speaker1Name);
+  const speaker2Slug = nameToSlug(config.speaker2Name);
+  const speaker1Dir = findAgentDirBySlug(agentsDir, speaker1Slug);
+  const speaker2Dir = findAgentDirBySlug(agentsDir, speaker2Slug);
+
+  if (!speaker1Dir || !speaker2Dir) {
+    return null;
+  }
+
+  // Load prompts
+  const speaker1Prompt = fs.readFileSync(path.join(speaker1Dir, "prompt.md"), "utf-8");
+  const speaker2Prompt = fs.readFileSync(path.join(speaker2Dir, "prompt.md"), "utf-8");
+
+  // Create agent configs
+  const firstSpeaker: AgentConfig = {
+    id: generateId(),
+    name: config.speaker1Name,
+    systemPrompt: speaker1Prompt,
+    modelId: config.modelId,
+    dirPath: speaker1Dir,
+  };
+
+  const secondSpeaker: AgentConfig = {
+    id: generateId(),
+    name: config.speaker2Name,
+    systemPrompt: speaker2Prompt,
+    modelId: config.modelId,
+    dirPath: speaker2Dir,
+  };
+
+  // Load judge prompt
+  const judgeDir = path.join(matchDir, "judge");
+  const judgePrompt = fs.existsSync(path.join(judgeDir, "prompt.md"))
+    ? fs.readFileSync(path.join(judgeDir, "prompt.md"), "utf-8")
+    : DEFAULT_JUDGE_PROMPT;
+
+  // Count completed debates by checking debate-N.json files
+  let completedDebates: DebateResult[] = [];
+  for (let i = 1; i <= config.totalDebates; i++) {
+    const debatePath = path.join(matchDir, `debate-${i}.json`);
+    if (fs.existsSync(debatePath)) {
+      const debateData = JSON.parse(fs.readFileSync(debatePath, "utf-8"));
+      completedDebates.push(debateData);
+    } else {
+      break; // Stop at first missing debate
+    }
+  }
+
+  const startFromDebate = completedDebates.length + 1;
+
+  const match: MatchState = {
+    id: matchId,
+    dirPath: matchDir,
+    config,
+    currentDebateNumber: completedDebates.length,
+    completedDebates,
+    firstSpeaker,
+    secondSpeaker,
+  };
+
+  logMatchEvent(matchDir, "MATCH_RESUMED", `Resuming from debate ${startFromDebate}`, {
+    matchId,
+    completedDebates: completedDebates.length,
+    totalDebates: config.totalDebates
+  });
+
+  return { match, judgePrompt, startFromDebate };
+}
+
