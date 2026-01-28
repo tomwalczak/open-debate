@@ -149,6 +149,26 @@ The generated prompt must:
 - If debate history exists: incorporate lessons from wins/losses to refine tactics
 - End with: "Be concise. Keep your response under 300 words."
 ${strategicBriefInstruction}
+# Strategic Evolution
+
+CRITICAL: When generating this prompt, follow these principles:
+
+1. **Preserve what works**: If the learnings show certain arguments or framings consistently won,
+   keep them prominent in the new prompt. Do not regress.
+
+2. **Don't repeat mistakes**: If specific claims got demolished (e.g., categorical statements that
+   invited counterexamples), ensure the new prompt avoids those patterns.
+
+3. **Innovate on persistent failures**: If the same weakness appears across multiple debates
+   (e.g., "Improve: counter externalities better" keeps appearing), don't just say "try harder."
+   Instead, INVENT a specific new tactic or framing that hasn't been tried. Think creatively:
+   - What reframe might work?
+   - What question could put the opponent on defensive?
+   - What concession-then-pivot might defuse the attack?
+
+4. **Integrate, don't list**: The prompt should feel like coherent strategic guidance, not a
+   bullet list of dos and don'ts. Weave the lessons into actionable debate moves.
+
 # Output Format
 
 Output ONLY the system prompt text. No commentary, no markdown, no quotes.
@@ -303,20 +323,16 @@ export async function createMatch(
   fs.writeFileSync(path.join(speaker1Dir, "learnings.md"), learnings1);
   fs.writeFileSync(path.join(speaker2Dir, "learnings.md"), learnings2);
 
-  // Generate prompts from learnings (single source of truth)
-  // Use full persona for prompt generation if available
-  const speaker1Prompt = await generatePromptFromLearnings(
-    persona1,
-    learnings1,
-    config.modelId
-  );
-  const speaker2Prompt = await generatePromptFromLearnings(
-    persona2,
-    learnings2,
-    config.modelId
-  );
+  // Generate prompts: use direct prompt if provided, otherwise generate from learnings
+  // Direct prompts bypass LLM processing entirely
+  const speaker1Prompt = config.directPrompt1
+    ? config.directPrompt1
+    : await generatePromptFromLearnings(persona1, learnings1, config.modelId);
+  const speaker2Prompt = config.directPrompt2
+    ? config.directPrompt2
+    : await generatePromptFromLearnings(persona2, learnings2, config.modelId);
 
-  // Save generated prompts (as cache/reference)
+  // Save prompts (as cache/reference)
   fs.writeFileSync(path.join(speaker1Dir, "prompt.md"), speaker1Prompt);
   fs.writeFileSync(path.join(speaker2Dir, "prompt.md"), speaker2Prompt);
 
