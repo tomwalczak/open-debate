@@ -13,7 +13,8 @@ import {
 import { runMatch, resumeMatch, type MatchCallbacks } from "./services/match-engine.js";
 import { generateDisplayNames } from "./services/name-generator.js";
 import { parseMatchPrompt, type ParsedMatchConfig } from "./services/prompt-parser.js";
-import type { MatchConfig, MatchState, QuestionExecutionState, WizardState } from "./types/debate.js";
+import type { MatchConfig, MatchState, QuestionExecutionState, WizardState, Exchange } from "./types/debate.js";
+import type { HumanInputContext } from "./services/match-engine.js";
 import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
 import { DEFAULT_MODEL_ID } from "./types/agent.js";
 import type { MatchSummary } from "./types/judge.js";
@@ -25,6 +26,8 @@ export interface AppProps {
     speaker2?: string;
     seed1?: string;
     seed2?: string;
+    directPrompt1?: string;
+    directPrompt2?: string;
     rounds?: number;
     questions?: number;
     issues?: string;
@@ -37,6 +40,7 @@ export interface AppProps {
     model?: string;
     narrate?: boolean;
     judgeSeed?: string;
+    humanSide?: "speaker1" | "speaker2";
   };
 }
 
@@ -53,6 +57,8 @@ export function App({ cliArgs }: AppProps) {
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [modelId] = useState(cliArgs?.model || DEFAULT_MODEL_ID);
+  const [humanInputResolver, setHumanInputResolver] = useState<((value: string) => void) | null>(null);
+  const [humanInputContext, setHumanInputContext] = useState<HumanInputContext | null>(null);
 
   const callbacks: MatchCallbacks = {
     onMatchStart: (m: MatchState) => {
@@ -93,8 +99,30 @@ export function App({ cliArgs }: AppProps) {
       setPhase("learning");
     },
     onError: (error: Error) => {
-      console.error("Match error:", error);
+      // Format error cleanly - don't dump raw JSON
+      const msg = error.message || String(error);
+      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("rate")) {
+        console.error("\n⚠️  Rate limit hit - waiting and retrying...\n");
+      } else if (msg.includes("502") || msg.includes("503")) {
+        console.error("\n⚠️  API temporarily unavailable - retrying...\n");
+      } else {
+        console.error("\n⚠️  Error:", msg.slice(0, 200), "\n");
+      }
     },
+    onHumanInputRequired: async (context) => {
+      return new Promise((resolve) => {
+        setHumanInputContext(context);
+        setHumanInputResolver(() => resolve);
+      });
+    },
+  };
+
+  const handleHumanResponse = (response: string) => {
+    if (humanInputResolver) {
+      humanInputResolver(response);
+      setHumanInputResolver(null);
+      setHumanInputContext(null);
+    }
   };
 
   // Handle CLI args for automation mode
@@ -156,6 +184,7 @@ export function App({ cliArgs }: AppProps) {
         modelId,
         narrate: parsed.narrate,
         judgeSeed: cliArgs.judgeSeed,
+        humanSide: cliArgs.humanSide,
       };
 
       setIsLoading(false);
@@ -188,8 +217,11 @@ export function App({ cliArgs }: AppProps) {
       modelId,
       seed1: cliArgs.seed1,
       seed2: cliArgs.seed2,
+      directPrompt1: cliArgs.directPrompt1,
+      directPrompt2: cliArgs.directPrompt2,
       narrate: cliArgs.narrate ?? false,
       judgeSeed: cliArgs.judgeSeed,
+      humanSide: cliArgs.humanSide,
     };
 
     try {
@@ -365,6 +397,8 @@ export function App({ cliArgs }: AppProps) {
       phase={phase}
       debateResults={debateResults}
       matchSummary={matchSummary}
+      humanInputContext={humanInputContext}
+      onHumanResponse={handleHumanResponse}
     />
   );
 }
