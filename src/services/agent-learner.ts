@@ -182,8 +182,8 @@ ${resultsText}
   // Only update prompt if self-improve is enabled
   if (selfImprove) {
     const fullLearnings = readAgentLearnings(agent);
-    // Use unified prompt generation from learnings (respects Strategic Brief)
-    const newPrompt = await generatePromptFromLearnings(agent.name, fullLearnings, modelId);
+    // Pass current prompt so LLM can improve it (not generate from scratch)
+    const newPrompt = await generatePromptFromLearnings(agent.name, fullLearnings, modelId, agent.systemPrompt);
     agent.systemPrompt = newPrompt;
     saveAgentPrompt(agent);
   }

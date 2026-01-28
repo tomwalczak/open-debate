@@ -106,6 +106,7 @@ export async function generatePromptFromLearnings(
   name: string,
   learnings: string,
   modelId: string,
+  currentPrompt?: string,
   retryCount: number = 0,
   overageChars?: number
 ): Promise<string> {
@@ -120,66 +121,29 @@ export async function generatePromptFromLearnings(
   }
 
   const overageNote = overageChars
-    ? `\n\nYour previous attempt was ${overageChars} characters over the limit. Be more concise this time.`
+    ? `\nPrevious attempt was ${overageChars} chars over limit. Be more concise.`
     : "";
 
-  const strategicBriefInstruction = hasStrategicBrief
-    ? `
-# Strategic Brief Priority
-
-The learnings file contains a <strategic-brief> section with the operator's core instructions.
-Treat the Strategic Brief as the PRIMARY directive - all learned behaviors from debate history
-should REFINE and SUPPORT the Strategic Brief, never override it.
-`
+  const briefNote = hasStrategicBrief
+    ? "Strategic Brief is the core directive - refine around it, don't override."
     : "";
 
   const { text } = await generateText({
     model: getModel(modelId),
-    prompt: `# Task
+    prompt: `<task>
+Improve this debate prompt for "${name}" based on the learnings.
+Principles: Preserve what works. Don't repeat mistakes. If something keeps failing, invent a new tactic.
+${briefNote}
+Output ONLY the improved prompt text (under ${PROMPT_MAX_LENGTH} chars), ending with "Be concise. Keep your response under 300 words."${overageNote}
+</task>
 
-Generate a system prompt for "${name}" who will participate in public debates.
+<current-prompt>
+${currentPrompt || generateInitialPrompt(name)}
+</current-prompt>
 
-# Requirements
-
-The generated prompt must:
-- Be under ${PROMPT_MAX_LENGTH} characters
-- Embody ${name}'s perspective and expertise
-- Provide clear, actionable debate strategy
-- If a Strategic Brief exists: treat it as the core directive that shapes all strategy
-- If debate history exists: incorporate lessons from wins/losses to refine tactics
-- End with: "Be concise. Keep your response under 300 words."
-${strategicBriefInstruction}
-# Strategic Evolution
-
-CRITICAL: When generating this prompt, follow these principles:
-
-1. **Preserve what works**: If the learnings show certain arguments or framings consistently won,
-   keep them prominent in the new prompt. Do not regress.
-
-2. **Don't repeat mistakes**: If specific claims got demolished (e.g., categorical statements that
-   invited counterexamples), ensure the new prompt avoids those patterns.
-
-3. **Innovate on persistent failures**: If the same weakness appears across multiple debates
-   (e.g., "Improve: counter externalities better" keeps appearing), don't just say "try harder."
-   Instead, INVENT a specific new tactic or framing that hasn't been tried. Think creatively:
-   - What reframe might work?
-   - What question could put the opponent on defensive?
-   - What concession-then-pivot might defuse the attack?
-
-4. **Integrate, don't list**: The prompt should feel like coherent strategic guidance, not a
-   bullet list of dos and don'ts. Weave the lessons into actionable debate moves.
-
-# Output Format
-
-Output ONLY the system prompt text. No commentary, no markdown, no quotes.
-${overageNote}
-# Agent's Learnings File
-
-Study this carefully - it contains the Strategic Brief (core directives) and/or debate history (what worked/failed):
-
+<learnings>
 ${learnings}
-
-Now generate the system prompt for ${name}:`,
+</learnings>`,
   });
 
   const newPrompt = text.trim();
@@ -189,7 +153,7 @@ Now generate the system prompt for ${name}:`,
       return newPrompt.slice(0, PROMPT_MAX_LENGTH - 100) + "\n\n[Truncated to fit limit]";
     }
     const overage = newPrompt.length - PROMPT_MAX_LENGTH;
-    return generatePromptFromLearnings(name, learnings, modelId, retryCount + 1, overage);
+    return generatePromptFromLearnings(name, learnings, modelId, currentPrompt, retryCount + 1, overage);
   }
 
   return newPrompt;
