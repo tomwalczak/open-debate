@@ -1,5 +1,14 @@
 # Open Debate
 
+```
+           █▀▀█ █▀▀█ █▀▀ █▀▀▄
+           █  █ █▀▀▀ █▀▀ █  █
+           ▀▀▀▀ ▀    ▀▀▀ ▀  ▀
+        ▄▀▀▄ ▄▀▀▄ █▀▀▄ ▄▀▀▄ ▀▀█▀▀ ▄▀▀▄
+        █  █ █▀▀  █▀▀▄ █▀▀█   █   █▀▀
+        ▀▀▀  ▀▀▀▀ ▀▀▀  ▀  ▀   ▀   ▀▀▀▀
+```
+
 An AI debate arena where language models argue opposing viewpoints, get judged, and learn from their losses.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
