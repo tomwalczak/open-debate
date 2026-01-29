@@ -10,75 +10,88 @@ An AI debate arena where language models argue opposing viewpoints, get judged, 
 - **Useful for:** Red-teaming your own arguments, exploring AI bias, benchmarking persuasion strategies
 - **Design:** Minimal "vanilla" prompts by default to surface raw model behavior rather than mask it
 
-## Installation
+## Installation (macOS)
+
+**One-liner** - installs Node.js if needed, clones repo, sets up everything:
 
 ```bash
-git clone https://github.com/your-username/open-debate.git
-cd open-debate
-npm install
+curl -fsSL https://raw.githubusercontent.com/tomwalczak/open-debate/main/install.sh | bash
 ```
 
-Set your API key (get one from [OpenRouter](https://openrouter.ai)):
+The script will prompt you for your [OpenRouter](https://openrouter.ai) API key.
+
+<details>
+<summary>Manual installation</summary>
 
 ```bash
+git clone https://github.com/tomwalczak/open-debate.git ~/Desktop/open-debate
+cd ~/Desktop/open-debate
+npm install
 echo "OPENROUTER_API_KEY=your-key-here" > .env
 ```
+</details>
 
 ## Quick Start
 
-**Interactive mode** (recommended for first run):
+After installation, open Terminal and run:
 
 ```bash
-npm start
+cd ~/Desktop/open-debate && npm start
 ```
 
-This launches a setup wizard where you pick speakers, topics, and settings.
+This launches the interactive wizard where you pick speakers, topics, and settings.
 
-**Command line mode**:
+**Or run directly with arguments:**
 
 ```bash
-npm start -- --speaker1 "Elon Musk" --speaker2 "Bill Gates" --autopilot
+cd ~/Desktop/open-debate && npm start -- \
+  --speaker1 "Nuclear engineer who believes nuclear power is the safest, cleanest path to energy abundance" \
+  --speaker2 "Environmental activist who believes nuclear's risks and costs make it a dangerous distraction from renewables" \
+  --autopilot
 ```
 
 ## Example Debates
 
-### Constitutional & Political
+### Energy & Environment
 
-**Originalism vs Living Constitution**
+**Nuclear Power: Safety vs Risk**
 ```bash
 npm start -- \
-  --speaker1 "Antonin Scalia-style originalist who believes the Constitution should be interpreted as the Founders intended" \
-  --speaker2 "Living constitutionalist who believes the Constitution must evolve with society" \
+  --speaker1 "Nuclear engineer who believes nuclear power is the safest, cleanest path to energy abundance and that anti-nuclear sentiment is driven by irrational fear" \
+  --speaker2 "Environmental activist who believes nuclear's catastrophic tail risks, waste storage problems, and massive costs make it a dangerous distraction from proven renewables" \
+  --issues "Chernobyl and Fukushima lessons,waste storage,cost overruns,baseload power,small modular reactors" \
   --questions 5 --rounds 3 --debates 3
 ```
 
-**Immigration Deep Dive**
+### Psychology & Culture
+
+**Therapy Culture: Healing or Harm?**
 ```bash
 npm start -- \
-  --speaker1 "Immigration restrictionist who prioritizes border security, wage protection for workers, and cultural cohesion" \
-  --speaker2 "Pro-immigration advocate who emphasizes economic benefits, humanitarian obligations, and America's immigrant heritage" \
-  --issues "asylum policy,economic impact,integration,border enforcement,legal immigration reform" \
-  --questions 5 --rounds 4 --debates 3
+  --speaker1 "Therapist and mental health advocate who believes widespread access to therapy reduces suffering, builds emotional intelligence, and helps people live authentic lives" \
+  --speaker2 "Cultural critic who believes therapy culture promotes fragility, pathologizes normal human struggle, and replaces community and meaning with endless self-focus" \
+  --issues "trauma discourse,resilience vs vulnerability,medicalization of sadness,therapeutic language in politics,self-help industry" \
+  --questions 5 --rounds 3 --debates 3
 ```
 
-### Philosophy of Science & Rationality
-
-**Popper vs Bay Area Rationalists**
-```bash
-npm start -- \
-  --speaker1 "Karl Popper-style critical rationalist who emphasizes falsificationism, the open society, and the limits of induction" \
-  --speaker2 "LessWrong-style Bayesian rationalist who emphasizes probability theory, expected utility, and AI alignment" \
-  --issues "scientific method,epistemology,prediction vs falsification,AI risk,social engineering" \
-  --questions 5 --rounds 4 --debates 3
-```
+### Philosophy & Social Theory
 
 **Girardian vs Marxist Analysis**
 ```bash
 npm start -- \
-  --speaker1 "Girardian who explains social conflict through mimetic desire and scapegoating" \
-  --speaker2 "Marxist who explains social conflict through material conditions and class struggle" \
-  --issues "violence,religion,capitalism,social change" \
+  --speaker1 "Girardian who explains social conflict through mimetic desire and scapegoating, and sees Christianity as the unveiling of the scapegoat mechanism" \
+  --speaker2 "Marxist who explains social conflict through material conditions and class struggle, and sees religion as ideology serving ruling class interests" \
+  --issues "origin of violence,religion's social function,capitalism,revolutionary change,human nature" \
   --questions 5 --rounds 3 --debates 3
+```
+
+**Popper vs Bay Area Rationalists**
+```bash
+npm start -- \
+  --speaker1 "Karl Popper-style critical rationalist who emphasizes falsificationism, the open society, and skepticism of prediction" \
+  --speaker2 "LessWrong-style Bayesian rationalist who emphasizes probability theory, expected utility maximization, and AI alignment" \
+  --issues "scientific method,epistemology,prediction vs falsification,AI existential risk,utopian social engineering" \
+  --questions 5 --rounds 4 --debates 3
 ```
 
 ## How It Works
