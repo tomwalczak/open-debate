@@ -204,7 +204,7 @@ Both agents' prompts accumulate lessons: "Don't concede X," "Reframe Y as Z," "L
 | `--rounds, -r`       | Rounds per question                  | 3                      |
 | `--debates, -d`      | Number of consecutive debates        | 1                      |
 | `--autopilot, -a`    | Run without pausing                  | false                  |
-| `--model, -m`        | Model ID for debaters                | `qwen/qwen3-235b-a22b` |
+| `--model, -m`        | Model ID for debaters                | `qwen/qwen3-next-80b-a3b-instruct` |
 | `--issues, -i`       | Comma-separated focus topics         | —                      |
 | `--human-coach, -hc` | Enable human coaching between rounds | false                  |
 | `--fork, -f`         | Fork from existing agent prompts     | —                      |
@@ -213,14 +213,16 @@ Both agents' prompts accumulate lessons: "Don't concede X," "Reframe Y as Z," "L
 
 ```bash
 # Via OpenRouter (recommended - one API key, many models)
---model "qwen/qwen3-235b-a22b"              # Default, good balance
---model "anthropic/claude-sonnet-4"         # Strong reasoning
---model "openai/gpt-4o"                     # OpenAI flagship
+--model "qwen/qwen3-next-80b-a3b-instruct"  # Default - open source, great value
+--model "google/gemini-2.5-flash"           # Fast and cheap
+--model "anthropic/claude-sonnet-4.5"       # Strong reasoning
+--model "anthropic/claude-opus-4.5"         # Highest quality
+--model "openai/gpt-5.2"                    # OpenAI flagship
 
 # Direct API access (requires respective API keys)
---model "anthropic:claude-sonnet-4"         # Requires ANTHROPIC_API_KEY
---model "openai:gpt-4o"                     # Requires OPENAI_API_KEY
---model "google:gemini-2.0-flash"           # Requires GOOGLE_GENERATIVE_AI_API_KEY
+--model "google:gemini-2.5-flash"           # Requires GOOGLE_GENERATIVE_AI_API_KEY
+--model "anthropic:claude-sonnet-4-5-20251101"  # Requires ANTHROPIC_API_KEY
+--model "openai:gpt-5.2"                    # Requires OPENAI_API_KEY
 ```
 
 ### Keyboard Controls During Debate
