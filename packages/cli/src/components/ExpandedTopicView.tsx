@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { ScrollView, type ScrollViewRef } from "ink-scroll-view";
-import type { QuestionExecutionState } from "@open-debate/core";
+import type { TopicExecutionState } from "@open-debate/core";
 import { ExchangeMessage } from "./ExchangeMessage.js";
 import { JudgeVerdict } from "./JudgeVerdict.js";
 import { Spinner } from "./Spinner.js";
@@ -9,30 +9,30 @@ import { theme } from "../theme.js";
 
 const isTTY = process.stdin.isTTY;
 
-interface ExpandedQuestionViewProps {
-  state: QuestionExecutionState;
+interface ExpandedTopicViewProps {
+  state: TopicExecutionState;
   speaker1Id: string;
   speaker2Id: string;
   speaker1Name: string;
   speaker2Name: string;
-  totalRounds: number;
-  totalQuestions: number;
+  totalTurns: number;
+  totalTopics: number;
 }
 
-export function ExpandedQuestionView({
+export function ExpandedTopicView({
   state,
   speaker1Id,
   speaker2Id,
   speaker1Name,
   speaker2Name,
-  totalRounds,
-  totalQuestions,
-}: ExpandedQuestionViewProps) {
+  totalTurns,
+  totalTopics,
+}: ExpandedTopicViewProps) {
   const {
-    questionIndex,
-    question,
+    topicIndex,
+    topic,
     status,
-    currentRound,
+    currentTurn,
     currentSpeakerId,
     exchanges,
     streamingText,
@@ -71,14 +71,14 @@ export function ExpandedQuestionView({
   const speakerColor =
     currentSpeakerId === speaker1Id ? theme.speaker1 : theme.speaker2;
 
-  const getRoundIndicator = () => {
+  const getTurnIndicator = () => {
     switch (status) {
       case "pending":
         return <Text dimColor>Pending</Text>;
       case "debating":
         return (
           <Text color={theme.accent}>
-            Round {currentRound}/{totalRounds}
+            Turn {currentTurn}/{totalTurns}
           </Text>
         );
       case "judging":
@@ -103,23 +103,23 @@ export function ExpandedQuestionView({
       marginBottom={1}
       height={32}
     >
-      {/* Header: Question number + round indicator */}
+      {/* Header: Topic number + turn indicator */}
       <Box justifyContent="space-between" marginBottom={1}>
         <Text bold>
-          Q{questionIndex + 1} of {totalQuestions}
+          Topic {topicIndex + 1} of {totalTopics}
         </Text>
         <Box gap={2}>
           <Text dimColor>↑↓ scroll</Text>
-          {getRoundIndicator()}
+          {getTurnIndicator()}
         </Box>
       </Box>
 
       {/* Scrollable content area */}
       <ScrollView ref={scrollRef} flexGrow={1}>
-        {/* Full question text */}
+        {/* Full topic text */}
         <Box marginBottom={1}>
           <Text wrap="wrap" color={theme.accent}>
-            "{question}"
+            "{topic}"
           </Text>
         </Box>
 
@@ -189,7 +189,7 @@ export function ExpandedQuestionView({
         {status === "complete" && verdict && (
           <JudgeVerdict
             verdict={verdict}
-            questionNumber={questionIndex + 1}
+            topicNumber={topicIndex + 1}
             speaker1Id={speaker1Id}
             speaker2Id={speaker2Id}
             speaker1Name={speaker1Name}

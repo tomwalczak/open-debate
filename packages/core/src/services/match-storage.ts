@@ -3,7 +3,7 @@ import * as path from "path";
 import { generateText } from "ai";
 import { getModel } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
-import type { MatchConfig, MatchState, DebateResult, QuestionResult } from "../types/debate.js";
+import type { MatchConfig, MatchState, DebateResult, TopicResult } from "../types/debate.js";
 import type { FinalTally } from "../types/judge.js";
 import { generateId } from "../utils/id.js";
 import { generateInitialPrompt, DEFAULT_JUDGE_PROMPT } from "./agent-factory.js";
@@ -331,7 +331,7 @@ export async function createMatch(
     speaker1: config.speaker1Name,
     speaker2: config.speaker2Name,
     totalDebates: config.totalDebates,
-    questionsPerDebate: config.questionsPerDebate,
+    topicsPerDebate: config.topicsPerDebate,
     modelId: config.modelId
   });
 
@@ -375,12 +375,12 @@ function findAgentDirBySlug(agentsDir: string, slug: string): string | null {
 export function saveDebateResult(
   match: MatchState,
   debateNumber: number,
-  questionResults: QuestionResult[],
+  topicResults: TopicResult[],
   finalTally: FinalTally
 ): void {
   const result: DebateResult = {
     debateNumber,
-    questionResults,
+    topicResults,
     finalTally,
     completedAt: new Date().toISOString(),
   };
@@ -392,7 +392,7 @@ export function saveDebateResult(
   );
 
   // Save transcript
-  const transcript = generateTranscript(match, debateNumber, questionResults, finalTally);
+  const transcript = generateTranscript(match, debateNumber, topicResults, finalTally);
   fs.writeFileSync(
     path.join(match.dirPath, `debate-${debateNumber}-transcript.md`),
     transcript
@@ -402,14 +402,14 @@ export function saveDebateResult(
 function generateTranscript(
   match: MatchState,
   debateNumber: number,
-  questionResults: QuestionResult[],
+  topicResults: TopicResult[],
   finalTally: FinalTally
 ): string {
   let md = `# ${match.config.speaker1Name} vs ${match.config.speaker2Name}\n`;
   md += `## Debate ${debateNumber} of ${match.config.totalDebates}\n\n`;
   md += `**Match**: ${match.id}\n`;
   md += `**Date**: ${new Date().toISOString()}\n`;
-  md += `**Rounds per Question**: ${match.config.roundsPerQuestion}\n\n`;
+  md += `**Turns per Topic**: ${match.config.turnsPerTopic}\n\n`;
 
   if (match.config.issueFocus && match.config.issueFocus.length > 0) {
     md += `**Issue Focus**: ${match.config.issueFocus.join(", ")}\n\n`;
@@ -417,21 +417,21 @@ function generateTranscript(
 
   md += `---\n\n`;
 
-  questionResults.forEach((qr, qIndex) => {
-    md += `## Question ${qIndex + 1}: ${qr.question}\n\n`;
+  topicResults.forEach((tr, tIndex) => {
+    md += `## Topic ${tIndex + 1}: ${tr.topic}\n\n`;
 
-    qr.exchanges.forEach((ex) => {
-      md += `### ${ex.speakerName} (Round ${ex.roundNumber})\n\n`;
+    tr.exchanges.forEach((ex) => {
+      md += `### ${ex.speakerName} (Turn ${ex.turnNumber})\n\n`;
       md += `${ex.message}\n\n`;
     });
 
-    if (qr.verdict) {
-      const winnerName = qr.verdict.winnerId === match.firstSpeaker.id
+    if (tr.verdict) {
+      const winnerName = tr.verdict.winnerId === match.firstSpeaker.id
         ? match.firstSpeaker.name
         : match.secondSpeaker.name;
       md += `### Judge Verdict\n\n`;
       md += `**Winner**: ${winnerName}\n\n`;
-      md += `**Reasoning**: ${qr.verdict.reasoning}\n\n`;
+      md += `**Reasoning**: ${tr.verdict.reasoning}\n\n`;
     }
 
     md += `---\n\n`;
@@ -624,4 +624,3 @@ export async function loadMatchForResume(
 
   return { match, judgePrompt, startFromDebate };
 }
-

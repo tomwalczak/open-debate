@@ -4,37 +4,37 @@ import TextInput from "ink-text-input";
 import { theme } from "../../theme.js";
 
 interface SettingsInputProps {
-  onComplete: (rounds: number, questionCount: number, debateCount: number) => void;
-  defaultRounds?: number;
-  defaultQuestions?: number;
+  onComplete: (turns: number, topicCount: number, debateCount: number) => void;
+  defaultTurns?: number;
+  defaultTopics?: number;
   defaultDebates?: number;
 }
 
 export function SettingsInput({
   onComplete,
-  defaultRounds = 3,
-  defaultQuestions = 5,
+  defaultTurns = 3,
+  defaultTopics = 5,
   defaultDebates = 1,
 }: SettingsInputProps) {
-  const [rounds, setRounds] = useState(String(defaultRounds));
-  const [questions, setQuestions] = useState(String(defaultQuestions));
+  const [turns, setTurns] = useState(String(defaultTurns));
+  const [topics, setTopics] = useState(String(defaultTopics));
   const [debates, setDebates] = useState(String(defaultDebates));
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const handleSubmit = (value: string) => {
     if (step === 1) {
-      const numRounds = parseInt(value, 10) || defaultRounds;
-      setRounds(String(numRounds));
+      const numTurns = parseInt(value, 10) || defaultTurns;
+      setTurns(String(numTurns));
       setStep(2);
     } else if (step === 2) {
-      const numQuestions = parseInt(value, 10) || defaultQuestions;
-      setQuestions(String(numQuestions));
+      const numTopics = parseInt(value, 10) || defaultTopics;
+      setTopics(String(numTopics));
       setStep(3);
     } else {
-      const numRounds = parseInt(rounds, 10) || defaultRounds;
-      const numQuestions = parseInt(questions, 10) || defaultQuestions;
+      const numTurns = parseInt(turns, 10) || defaultTurns;
+      const numTopics = parseInt(topics, 10) || defaultTopics;
       const numDebates = parseInt(value, 10) || defaultDebates;
-      onComplete(numRounds, numQuestions, numDebates);
+      onComplete(numTurns, numTopics, numDebates);
     }
   };
 
@@ -44,14 +44,14 @@ export function SettingsInput({
 
       <Box>
         <Text color={step === 1 ? theme.accent : theme.success}>
-          Rounds per question: {step === 1 ? "" : rounds}
+          Turns per topic: {step === 1 ? "" : turns}
         </Text>
         {step === 1 && (
           <TextInput
-            value={rounds}
-            onChange={setRounds}
+            value={turns}
+            onChange={setTurns}
             onSubmit={handleSubmit}
-            placeholder={`Default: ${defaultRounds}`}
+            placeholder={`Default: ${defaultTurns}`}
           />
         )}
       </Box>
@@ -59,14 +59,14 @@ export function SettingsInput({
       {step >= 2 && (
         <Box>
           <Text color={step === 2 ? theme.accent : theme.success}>
-            Questions per debate: {step === 2 ? "" : questions}
+            Topics per debate: {step === 2 ? "" : topics}
           </Text>
           {step === 2 && (
             <TextInput
-              value={questions}
-              onChange={setQuestions}
+              value={topics}
+              onChange={setTopics}
               onSubmit={handleSubmit}
-              placeholder={`Default: ${defaultQuestions}`}
+              placeholder={`Default: ${defaultTopics}`}
             />
           )}
         </Box>

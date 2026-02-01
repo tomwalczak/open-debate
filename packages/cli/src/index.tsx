@@ -17,8 +17,8 @@ Options:
   --speaker2 <name>         Second speaker name or persona
   --seed1 <instructions>    Instructions for generating speaker1's initial prompt
   --seed2 <instructions>    Instructions for generating speaker2's initial prompt
-  --rounds <number>         Rounds per question (default: 5)
-  --questions <number>      Number of debate questions (default: 5)
+  --turns <number>          Turns per topic (default: 5)
+  --topics <number>         Number of debate topics (default: 5)
   --issues <topics>         Comma-separated focus topics
   --human-coach             Enable human coaching
   --no-human-coach          Disable human coaching
@@ -61,7 +61,7 @@ Examples:
   npx debate --speaker1 "Elon Musk" --speaker2 "Bill Gates" --debates 5 --autopilot
 
 Keys during debate:
-  1-9         Switch between active debate tabs
+  1-9         Switch between active topic tabs
   Ctrl+C      Exit
 `);
   process.exit(0);
@@ -77,8 +77,8 @@ interface CliArgs {
   speaker2?: string;
   seed1?: string;
   seed2?: string;
-  rounds?: number;
-  questions?: number;
+  turns?: number;
+  topics?: number;
   issues?: string;
   humanCoach?: boolean;
   humanSide?: "speaker1" | "speaker2";
@@ -120,12 +120,12 @@ function parseArgs(rawArgs: string[]): CliArgs {
         result.seed2 = nextArg;
         i++;
         break;
-      case "--rounds":
-        result.rounds = parseInt(nextArg, 10);
+      case "--turns":
+        result.turns = parseInt(nextArg, 10);
         i++;
         break;
-      case "--questions":
-        result.questions = parseInt(nextArg, 10);
+      case "--topics":
+        result.topics = parseInt(nextArg, 10);
         i++;
         break;
       case "--issues":

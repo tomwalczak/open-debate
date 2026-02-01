@@ -10,8 +10,8 @@ const verdictSchema = z.object({
   winnerId: z.string().describe("The ID of the winning speaker"),
 });
 
-export async function judgeQuestion(
-  question: string,
+export async function judgeTopic(
+  topic: string,
   exchanges: Exchange[],
   speaker1: AgentConfig,
   speaker2: AgentConfig,
@@ -25,7 +25,7 @@ export async function judgeQuestion(
     model: getModel(judge.modelId),
     schema: verdictSchema,
     system: judge.systemPrompt,
-    prompt: `Question: "${question}"
+    prompt: `Topic: "${topic}"
 
 Speaker IDs: ${speaker1.id}, ${speaker2.id}
 
@@ -37,7 +37,7 @@ ${transcript}`,
 }
 
 export function calculateFinalTally(
-  questionVerdicts: JudgeVerdict[],
+  topicVerdicts: JudgeVerdict[],
   speaker1Id: string,
   speaker2Id: string
 ): FinalTally {
@@ -45,7 +45,7 @@ export function calculateFinalTally(
   let speaker2Wins = 0;
   let ties = 0;
 
-  for (const verdict of questionVerdicts) {
+  for (const verdict of topicVerdicts) {
     if (verdict.winnerId === speaker1Id) {
       speaker1Wins++;
     } else if (verdict.winnerId === speaker2Id) {
@@ -67,8 +67,8 @@ export async function generateMatchSummary(
   // Build ID -> name mapping from exchanges
   const idToName: Record<string, string> = {};
   for (const debate of debates) {
-    for (const qr of debate.questionResults) {
-      for (const ex of qr.exchanges) {
+    for (const tr of debate.topicResults) {
+      for (const ex of tr.exchanges) {
         idToName[ex.speakerId] = ex.speakerName;
       }
     }
@@ -89,14 +89,14 @@ export async function generateMatchSummary(
     const s2Wins = d.finalTally.speaker2Wins;
     const winner = s1Wins > s2Wins ? speaker1Name : s2Wins > s1Wins ? speaker2Name : "Tie";
 
-    const questionSummaries = d.questionResults.map((q, qi) => {
-      const winnerName = q.verdict?.winnerId ?
-        (d.questionResults[qi]?.exchanges[0]?.speakerId === q.verdict.winnerId ? speaker1Name : speaker2Name) : "Tie";
-      const reasoning = q.verdict?.reasoning ? cleanText(q.verdict.reasoning) : "no verdict";
-      return `Q${qi + 1}: "${q.question}" → ${winnerName} (${reasoning})`;
+    const topicSummaries = d.topicResults.map((t, ti) => {
+      const winnerName = t.verdict?.winnerId ?
+        (d.topicResults[ti]?.exchanges[0]?.speakerId === t.verdict.winnerId ? speaker1Name : speaker2Name) : "Tie";
+      const reasoning = t.verdict?.reasoning ? cleanText(t.verdict.reasoning) : "no verdict";
+      return `Topic ${ti + 1}: "${t.topic}" → ${winnerName} (${reasoning})`;
     }).join("\n");
 
-    return `Debate ${i + 1}: ${speaker1Name} ${s1Wins} - ${s2Wins} ${speaker2Name} (${winner} wins)\n${questionSummaries}`;
+    return `Debate ${i + 1}: ${speaker1Name} ${s1Wins} - ${s2Wins} ${speaker2Name} (${winner} wins)\n${topicSummaries}`;
   }).join("\n\n");
 
   const totalS1 = debates.reduce((sum, d) => sum + d.finalTally.speaker1Wins, 0);
@@ -121,7 +121,7 @@ Cover:
 - Key tensions: Where do the two sides fundamentally disagree? What would resolve the disagreement?
 - Debater weaknesses: What were each speaker's blind spots? Where did they fail to counter arguments or leave claims undefended? What areas could each improve?
 - Patterns: Did certain argument types dominate? Were there recurring weaknesses?
-- Further investigation: What specific questions should the reader research before their debate?
+- Further investigation: What specific topics should the reader research before their debate?
 
 FORMATTING:
 - Write in propositional full sentences. State claims directly.

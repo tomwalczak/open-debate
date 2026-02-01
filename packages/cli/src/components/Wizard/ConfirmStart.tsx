@@ -5,8 +5,8 @@ import { theme } from "../../theme.js";
 interface ConfirmStartProps {
   speaker1Name: string;
   speaker2Name: string;
-  rounds: number;
-  questions: number;
+  turns: number;
+  topics: number;
   debates: number;
   narrate: boolean;
   onConfirm: () => void;
@@ -16,8 +16,8 @@ interface ConfirmStartProps {
 export function ConfirmStart({
   speaker1Name,
   speaker2Name,
-  rounds,
-  questions,
+  turns,
+  topics,
   debates,
   narrate,
   onConfirm,
@@ -42,7 +42,7 @@ export function ConfirmStart({
           <Text color={theme.speaker2}>{speaker2Name}</Text>
         </Text>
         <Text>
-          <Text dimColor>Format:</Text> {rounds} rounds × {questions} questions × {debates} debate{debates > 1 ? "s" : ""}
+          <Text dimColor>Format:</Text> {turns} turns × {topics} topics × {debates} debate{debates > 1 ? "s" : ""}
         </Text>
         <Text>
           <Text dimColor>Narrator:</Text> {narrate ? <Text color={theme.success}>ON</Text> : <Text dimColor>OFF</Text>}

@@ -12,9 +12,9 @@ import type { Exchange } from "../types/debate.js";
 export async function processHumanInput(
   humanInput: string,
   speakerName: string,
-  question: string,
+  topic: string,
   previousExchanges: Exchange[],
-  roundNumber: number,
+  turnNumber: number,
   modelId: string
 ): Promise<string> {
   const context = previousExchanges.slice(-2).map(ex =>
@@ -36,8 +36,8 @@ The human has written their response. Your job is to help them - but with MINIMA
 4. **Keep it under 300 words**
 
 ## Context
-Question: ${question}
-Round: ${roundNumber}
+Topic: ${topic}
+Turn: ${turnNumber}
 ${context ? `Recent exchanges:\n${context}` : ""}
 
 ## Human's Input

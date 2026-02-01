@@ -1,11 +1,11 @@
 import { streamText } from "ai";
 import { getModel } from "./model-provider.js";
 import { createJudgeAgent } from "./agent-factory.js";
-import { judgeQuestion, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
+import { judgeTopic, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
 import type { MatchSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
 import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchForResume, type CreateMatchResult } from "./match-storage.js";
-import { generateQuestions } from "./question-generator.js";
+import { generateTopics } from "./topic-generator.js";
 import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
 import { processHumanInput } from "./response-expander.js";
@@ -15,11 +15,11 @@ import type {
   MatchState,
   DebateConfig,
   Exchange,
-  QuestionResult,
-  QuestionExecutionState,
+  TopicResult,
+  TopicExecutionState,
 } from "../types/debate.js";
 
-const MAX_CONCURRENT_QUESTIONS = 5;
+const MAX_CONCURRENT_TOPICS = 5;
 
 // Calculate reading delay based on text length
 // Fast reading speed: ~6 words per second
@@ -34,12 +34,12 @@ function getReadingDelay(text: string): number {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export interface HumanInputContext {
-  questionIndex: number;
-  question: string;
+  topicIndex: number;
+  topic: string;
   exchanges: Exchange[];
   currentSpeakerId: string;
-  roundNumber: number;
-  totalRounds: number;
+  turnNumber: number;
+  totalTurns: number;
   speakerName: string;
   speakerPersona: string;
   opponentLastMessage?: string;
@@ -51,8 +51,8 @@ export interface MatchCallbacks {
   onDebateEnd: (debateNumber: number, speaker1Wins: number, speaker2Wins: number) => void;
   onMatchEnd: (match: MatchState) => void;
   onMatchSummary: (summary: MatchSummary) => void;
-  onQuestionStateChange: (questionState: QuestionExecutionState) => void;
-  onQuestionStreamChunk: (questionIndex: number, chunk: string) => void;
+  onTopicStateChange: (topicState: TopicExecutionState) => void;
+  onTopicStreamChunk: (topicIndex: number, chunk: string) => void;
   onLearning: () => void;
   onError: (error: Error) => void;
   onHumanInputRequired?: (context: HumanInputContext) => Promise<string>;
@@ -60,21 +60,21 @@ export interface MatchCallbacks {
 }
 
 export interface HumanContinueContext {
-  questionIndex: number;
-  question: string;
-  roundNumber: number;
-  totalRounds: number;
+  topicIndex: number;
+  topic: string;
+  turnNumber: number;
+  totalTurns: number;
   opponentName: string;
   opponentMessage: string;
-  isLastRound: boolean;
+  isLastTurn: boolean;
 }
 
-class QuestionPool {
+class TopicPool {
   private running = 0;
   private queue: Array<() => Promise<void>> = [];
   private maxConcurrent: number;
 
-  constructor(maxConcurrent: number = MAX_CONCURRENT_QUESTIONS) {
+  constructor(maxConcurrent: number = MAX_CONCURRENT_TOPICS) {
     this.maxConcurrent = maxConcurrent;
   }
 
@@ -111,9 +111,9 @@ class QuestionPool {
 
 async function generateSpeakerResponse(
   speaker: AgentConfig,
-  question: string,
+  topic: string,
   previousExchanges: Exchange[],
-  roundNumber: number,
+  turnNumber: number,
   onChunk: (chunk: string) => void
 ): Promise<string> {
   const messages = previousExchanges.map((ex) => ({
@@ -123,8 +123,8 @@ async function generateSpeakerResponse(
 
   const systemPrompt = `${speaker.systemPrompt}
 
-Current debate question: ${question}
-You are in round ${roundNumber} of this debate.
+Current debate topic: ${topic}
+You are on turn ${turnNumber} of this debate.
 
 Be concise. Keep your response under 300 words.`;
 
@@ -136,7 +136,7 @@ Be concise. Keep your response under 300 words.`;
     messages:
       messages.length > 0
         ? messages
-        : [{ role: "user" as const, content: `Please argue your position on: ${question}` }],
+        : [{ role: "user" as const, content: `Please argue your position on: ${topic}` }],
   });
 
   for await (const chunk of result.textStream) {
@@ -147,10 +147,10 @@ Be concise. Keep your response under 300 words.`;
   return fullMessage;
 }
 
-async function executeQuestion(
-  questionIndex: number,
-  question: string,
-  roundsPerQuestion: number,
+async function executeTopic(
+  topicIndex: number,
+  topic: string,
+  turnsPerTopic: number,
   firstSpeaker: AgentConfig,
   secondSpeaker: AgentConfig,
   judge: AgentConfig,
@@ -159,44 +159,44 @@ async function executeQuestion(
   modelId: string,
   humanSpeakerId?: string,
   humanSpeakerPersona?: string
-): Promise<QuestionResult> {
+): Promise<TopicResult> {
   const exchanges: Exchange[] = [];
 
-  let questionState: QuestionExecutionState = {
-    questionIndex,
-    question,
+  let topicState: TopicExecutionState = {
+    topicIndex,
+    topic,
     status: "debating",
-    currentRound: 1,
+    currentTurn: 1,
     currentSpeakerId: null,
     exchanges: [],
     streamingText: "",
     verdict: null,
   };
 
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
-  for (let round = 1; round <= roundsPerQuestion; round++) {
-    questionState = { ...questionState, currentRound: round };
+  for (let turn = 1; turn <= turnsPerTopic; turn++) {
+    topicState = { ...topicState, currentTurn: turn };
 
     // First speaker - keep previous narratorSummary visible until new narrator starts
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       currentSpeakerId: firstSpeaker.id,
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
 
     let speaker1Message: string;
     if (humanSpeakerId && firstSpeaker.id === humanSpeakerId && callbacks.onHumanInputRequired) {
       // Human's turn - request input
       const lastOpponentMessage = exchanges.length > 0 ? exchanges[exchanges.length - 1].message : undefined;
       const humanInput = await callbacks.onHumanInputRequired({
-        questionIndex,
-        question,
+        topicIndex,
+        topic,
         exchanges: [...exchanges],
         currentSpeakerId: firstSpeaker.id,
-        roundNumber: round,
-        totalRounds: roundsPerQuestion,
+        turnNumber: turn,
+        totalTurns: turnsPerTopic,
         speakerName: firstSpeaker.name,
         speakerPersona: humanSpeakerPersona || firstSpeaker.name,
         opponentLastMessage: lastOpponentMessage,
@@ -205,27 +205,27 @@ async function executeQuestion(
       speaker1Message = await processHumanInput(
         humanInput,
         firstSpeaker.name,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         modelId
       );
     } else {
       // AI's turn
       speaker1Message = await generateSpeakerResponse(
         firstSpeaker,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         (chunk) => {
           // Only stream raw text when narrator is off
           if (!narrate) {
-            questionState = {
-              ...questionState,
-              streamingText: questionState.streamingText + chunk,
+            topicState = {
+              ...topicState,
+              streamingText: topicState.streamingText + chunk,
             };
-            callbacks.onQuestionStreamChunk(questionIndex, chunk);
-            callbacks.onQuestionStateChange(questionState);
+            callbacks.onTopicStreamChunk(topicIndex, chunk);
+            callbacks.onTopicStateChange(topicState);
           }
         }
       );
@@ -236,87 +236,87 @@ async function executeQuestion(
       speakerId: firstSpeaker.id,
       speakerName: firstSpeaker.name,
       message: speaker1Message,
-      roundNumber: round,
-      questionIndex,
+      turnNumber: turn,
+      topicIndex,
     };
     exchanges.push(exchange1);
 
     // Generate narrator summary if enabled (streamed)
     if (narrate) {
       const previousExchanges = exchanges.slice(0, -1);
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         exchanges: [...exchanges],
         streamingText: "",
         narratorSummary: undefined, // Clear old summary when new narrator starts
         isNarratorStreaming: true,
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
 
       const summary = await narrateExchange(
         exchange1,
-        question,
+        topic,
         modelId,
         previousExchanges,
         (chunk) => {
-          questionState = {
-            ...questionState,
-            streamingText: questionState.streamingText + chunk,
+          topicState = {
+            ...topicState,
+            streamingText: topicState.streamingText + chunk,
           };
-          callbacks.onQuestionStateChange(questionState);
+          callbacks.onTopicStateChange(topicState);
         }
       );
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         streamingText: "",
         narratorSummary: summary,
         isNarratorStreaming: false,
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
 
       // Give user time to read the summary
       await delay(getReadingDelay(summary));
     } else {
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         exchanges: [...exchanges],
         streamingText: "",
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
     }
 
     // If human is second speaker, wait for them to read opponent's response before their turn
     if (humanSpeakerId && secondSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
       await callbacks.onWaitForHumanContinue({
-        questionIndex,
-        question,
-        roundNumber: round,
-        totalRounds: roundsPerQuestion,
+        topicIndex,
+        topic,
+        turnNumber: turn,
+        totalTurns: turnsPerTopic,
         opponentName: firstSpeaker.name,
         opponentMessage: speaker1Message,
-        isLastRound: false,
+        isLastTurn: false,
       });
     }
 
     // Second speaker - keep previous narratorSummary visible until new narrator starts
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       currentSpeakerId: secondSpeaker.id,
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
 
     let speaker2Message: string;
     if (humanSpeakerId && secondSpeaker.id === humanSpeakerId && callbacks.onHumanInputRequired) {
       // Human's turn - request input
       const lastOpponentMessage = exchanges.length > 0 ? exchanges[exchanges.length - 1].message : undefined;
       const humanInput = await callbacks.onHumanInputRequired({
-        questionIndex,
-        question,
+        topicIndex,
+        topic,
         exchanges: [...exchanges],
         currentSpeakerId: secondSpeaker.id,
-        roundNumber: round,
-        totalRounds: roundsPerQuestion,
+        turnNumber: turn,
+        totalTurns: turnsPerTopic,
         speakerName: secondSpeaker.name,
         speakerPersona: humanSpeakerPersona || secondSpeaker.name,
         opponentLastMessage: lastOpponentMessage,
@@ -325,27 +325,27 @@ async function executeQuestion(
       speaker2Message = await processHumanInput(
         humanInput,
         secondSpeaker.name,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         modelId
       );
     } else {
       // AI's turn
       speaker2Message = await generateSpeakerResponse(
         secondSpeaker,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         (chunk) => {
           // Only stream raw text when narrator is off
           if (!narrate) {
-            questionState = {
-              ...questionState,
-              streamingText: questionState.streamingText + chunk,
+            topicState = {
+              ...topicState,
+              streamingText: topicState.streamingText + chunk,
             };
-            callbacks.onQuestionStreamChunk(questionIndex, chunk);
-            callbacks.onQuestionStateChange(questionState);
+            callbacks.onTopicStreamChunk(topicIndex, chunk);
+            callbacks.onTopicStateChange(topicState);
           }
         }
       );
@@ -356,96 +356,96 @@ async function executeQuestion(
       speakerId: secondSpeaker.id,
       speakerName: secondSpeaker.name,
       message: speaker2Message,
-      roundNumber: round,
-      questionIndex,
+      turnNumber: turn,
+      topicIndex,
     };
     exchanges.push(exchange2);
 
     // Generate narrator summary if enabled (streamed)
     if (narrate) {
       const previousExchanges = exchanges.slice(0, -1);
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         exchanges: [...exchanges],
         streamingText: "",
         narratorSummary: undefined, // Clear old summary when new narrator starts
         isNarratorStreaming: true,
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
 
       const summary = await narrateExchange(
         exchange2,
-        question,
+        topic,
         modelId,
         previousExchanges,
         (chunk) => {
-          questionState = {
-            ...questionState,
-            streamingText: questionState.streamingText + chunk,
+          topicState = {
+            ...topicState,
+            streamingText: topicState.streamingText + chunk,
           };
-          callbacks.onQuestionStateChange(questionState);
+          callbacks.onTopicStateChange(topicState);
         }
       );
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         streamingText: "",
         narratorSummary: summary,
         isNarratorStreaming: false,
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
 
       // Give user time to read the summary
       await delay(getReadingDelay(summary));
     } else {
-      questionState = {
-        ...questionState,
+      topicState = {
+        ...topicState,
         exchanges: [...exchanges],
         streamingText: "",
       };
-      callbacks.onQuestionStateChange(questionState);
+      callbacks.onTopicStateChange(topicState);
     }
 
-    // If human is first speaker, wait for them to read opponent's response before next round
+    // If human is first speaker, wait for them to read opponent's response before next turn
     if (humanSpeakerId && firstSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
-      const isLastRound = round === roundsPerQuestion;
+      const isLastTurn = turn === turnsPerTopic;
       await callbacks.onWaitForHumanContinue({
-        questionIndex,
-        question,
-        roundNumber: round,
-        totalRounds: roundsPerQuestion,
+        topicIndex,
+        topic,
+        turnNumber: turn,
+        totalTurns: turnsPerTopic,
         opponentName: secondSpeaker.name,
         opponentMessage: speaker2Message,
-        isLastRound,
+        isLastTurn,
       });
     }
   }
 
-  // Judge this question
-  questionState = {
-    ...questionState,
+  // Judge this topic
+  topicState = {
+    ...topicState,
     status: "judging",
     currentSpeakerId: null,
     streamingText: "",
   };
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
-  const verdict = await judgeQuestion(
-    question,
+  const verdict = await judgeTopic(
+    topic,
     exchanges,
     firstSpeaker,
     secondSpeaker,
     judge
   );
 
-  questionState = {
-    ...questionState,
+  topicState = {
+    ...topicState,
     status: "complete",
     verdict,
   };
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
   return {
-    question,
+    topic,
     exchanges,
     verdict,
   };
@@ -454,10 +454,10 @@ async function executeQuestion(
 async function runSingleDebate(
   match: MatchState,
   debateNumber: number,
-  questions: string[],
+  topics: string[],
   callbacks: MatchCallbacks,
   judgePrompt: string
-): Promise<{ questionResults: QuestionResult[]; speaker1Wins: number; speaker2Wins: number }> {
+): Promise<{ topicResults: TopicResult[]; speaker1Wins: number; speaker2Wins: number }> {
   const { firstSpeaker, secondSpeaker, config } = match;
   const judge = createJudgeAgent(config.modelId, judgePrompt);
 
@@ -474,21 +474,21 @@ async function runSingleDebate(
       ? config.speaker2Persona
       : undefined;
 
-  // If human is playing, run questions sequentially (can't do parallel human input)
-  const maxConcurrent = humanSpeakerId ? 1 : MAX_CONCURRENT_QUESTIONS;
-  const pool = new QuestionPool(maxConcurrent);
+  // If human is playing, run topics sequentially (can't do parallel human input)
+  const maxConcurrent = humanSpeakerId ? 1 : MAX_CONCURRENT_TOPICS;
+  const pool = new TopicPool(maxConcurrent);
 
-  // Run questions, alternating speaker order to balance second-speaker advantage
-  const questionPromises = questions.map((question, index) => {
+  // Run topics, alternating speaker order to balance second-speaker advantage
+  const topicPromises = topics.map((topic, index) => {
     // Alternate who goes first: even index = speaker1 first, odd index = speaker2 first
     const goesFirst = index % 2 === 0 ? firstSpeaker : secondSpeaker;
     const goesSecond = index % 2 === 0 ? secondSpeaker : firstSpeaker;
 
     return pool.add(() =>
-      executeQuestion(
+      executeTopic(
         index,
-        question,
-        config.roundsPerQuestion,
+        topic,
+        config.turnsPerTopic,
         goesFirst,
         goesSecond,
         judge,
@@ -501,25 +501,25 @@ async function runSingleDebate(
     );
   });
 
-  const results = await Promise.all(questionPromises);
+  const results = await Promise.all(topicPromises);
 
-  // Sort by question index
-  const questionResults = results.sort(
-    (a, b) => questions.indexOf(a.question) - questions.indexOf(b.question)
+  // Sort by topic index
+  const topicResults = results.sort(
+    (a, b) => topics.indexOf(a.topic) - topics.indexOf(b.topic)
   );
 
   // Calculate tally
-  const verdicts = questionResults
-    .map((qr) => qr.verdict)
+  const verdicts = topicResults
+    .map((tr) => tr.verdict)
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
   const finalTally = calculateFinalTally(verdicts, firstSpeaker.id, secondSpeaker.id);
 
   // Save debate result
-  saveDebateResult(match, debateNumber, questionResults, finalTally);
+  saveDebateResult(match, debateNumber, topicResults, finalTally);
 
   return {
-    questionResults,
+    topicResults,
     speaker1Wins: finalTally.speaker1Wins,
     speaker2Wins: finalTally.speaker2Wins,
   };
@@ -539,22 +539,22 @@ export async function runMatch(
       logMatchEvent(match.dirPath, "DEBATE_START", `Starting debate ${debateNum}`, { debateNum });
       callbacks.onDebateStart(debateNum);
 
-      // Generate questions for this debate
-      const questions = await generateQuestions({
+      // Generate topics for this debate
+      const topics = await generateTopics({
         speaker1Name: config.speaker1Name,
         speaker2Name: config.speaker2Name,
         speaker1Persona: config.speaker1Persona,
         speaker2Persona: config.speaker2Persona,
-        count: config.questionsPerDebate,
+        count: config.topicsPerDebate,
         issueFocus: config.issueFocus || [],
         modelId: config.modelId,
       });
 
       // Run debate
-      const { questionResults, speaker1Wins, speaker2Wins } = await runSingleDebate(
+      const { topicResults, speaker1Wins, speaker2Wins } = await runSingleDebate(
         match,
         debateNum,
-        questions,
+        topics,
         callbacks,
         judgePrompt
       );
@@ -572,7 +572,7 @@ export async function runMatch(
       await Promise.all([
         updateAgentAfterDebate(
           match.firstSpeaker,
-          questionResults,
+          topicResults,
           match.secondSpeaker,
           match.firstSpeaker.modelId,
           undefined,
@@ -580,7 +580,7 @@ export async function runMatch(
         ),
         updateAgentAfterDebate(
           match.secondSpeaker,
-          questionResults,
+          topicResults,
           match.firstSpeaker,
           match.secondSpeaker.modelId,
           undefined,
@@ -592,8 +592,8 @@ export async function runMatch(
       match.currentDebateNumber = debateNum;
       match.completedDebates.push({
         debateNumber: debateNum,
-        questionResults,
-        finalTally: { speaker1Wins, speaker2Wins, ties: config.questionsPerDebate - speaker1Wins - speaker2Wins },
+        topicResults,
+        finalTally: { speaker1Wins, speaker2Wins, ties: config.topicsPerDebate - speaker1Wins - speaker2Wins },
         completedAt: new Date().toISOString(),
       });
     }
@@ -650,22 +650,22 @@ export async function resumeMatch(
       logMatchEvent(match.dirPath, "DEBATE_START", `Starting debate ${debateNum}`, { debateNum });
       callbacks.onDebateStart(debateNum);
 
-      // Generate questions for this debate
-      const questions = await generateQuestions({
+      // Generate topics for this debate
+      const topics = await generateTopics({
         speaker1Name: config.speaker1Name,
         speaker2Name: config.speaker2Name,
         speaker1Persona: config.speaker1Persona,
         speaker2Persona: config.speaker2Persona,
-        count: config.questionsPerDebate,
+        count: config.topicsPerDebate,
         issueFocus: config.issueFocus || [],
         modelId: config.modelId,
       });
 
       // Run debate
-      const { questionResults, speaker1Wins, speaker2Wins } = await runSingleDebate(
+      const { topicResults, speaker1Wins, speaker2Wins } = await runSingleDebate(
         match,
         debateNum,
-        questions,
+        topics,
         callbacks,
         judgePrompt
       );
@@ -683,7 +683,7 @@ export async function resumeMatch(
       await Promise.all([
         updateAgentAfterDebate(
           match.firstSpeaker,
-          questionResults,
+          topicResults,
           match.secondSpeaker,
           match.firstSpeaker.modelId,
           undefined,
@@ -691,7 +691,7 @@ export async function resumeMatch(
         ),
         updateAgentAfterDebate(
           match.secondSpeaker,
-          questionResults,
+          topicResults,
           match.firstSpeaker,
           match.secondSpeaker.modelId,
           undefined,
@@ -703,8 +703,8 @@ export async function resumeMatch(
       match.currentDebateNumber = debateNum;
       match.completedDebates.push({
         debateNumber: debateNum,
-        questionResults,
-        finalTally: { speaker1Wins, speaker2Wins, ties: config.questionsPerDebate - speaker1Wins - speaker2Wins },
+        topicResults,
+        finalTally: { speaker1Wins, speaker2Wins, ties: config.topicsPerDebate - speaker1Wins - speaker2Wins },
         completedAt: new Date().toISOString(),
       });
     }

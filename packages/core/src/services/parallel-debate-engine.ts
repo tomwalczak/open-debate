@@ -2,7 +2,7 @@ import { streamText } from "ai";
 import { getModel } from "./model-provider.js";
 import { createAgent } from "./agent-storage.js";
 import { createJudgeAgent } from "./agent-factory.js";
-import { judgeQuestion, calculateFinalTally } from "./judge-service.js";
+import { judgeTopic, calculateFinalTally } from "./judge-service.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
 import { generateDebateId, generateId } from "../utils/id.js";
 import { saveDebateLogs } from "../utils/logger.js";
@@ -11,25 +11,25 @@ import type {
   DebateState,
   DebateConfig,
   Exchange,
-  QuestionResult,
-  QuestionExecutionState,
+  TopicResult,
+  TopicExecutionState,
 } from "../types/debate.js";
 
-const MAX_CONCURRENT_QUESTIONS = 5;
+const MAX_CONCURRENT_TOPICS = 5;
 
 export interface ParallelDebateCallbacks {
   onStateChange: (state: DebateState) => void;
-  onQuestionStateChange: (questionState: QuestionExecutionState) => void;
-  onQuestionStreamChunk: (questionIndex: number, chunk: string) => void;
+  onTopicStateChange: (topicState: TopicExecutionState) => void;
+  onTopicStreamChunk: (topicIndex: number, chunk: string) => void;
   onError: (error: Error) => void;
 }
 
-class QuestionPool {
+class TopicPool {
   private running = 0;
   private queue: Array<() => Promise<void>> = [];
   private maxConcurrent: number;
 
-  constructor(maxConcurrent: number = MAX_CONCURRENT_QUESTIONS) {
+  constructor(maxConcurrent: number = MAX_CONCURRENT_TOPICS) {
     this.maxConcurrent = maxConcurrent;
   }
 
@@ -66,10 +66,10 @@ class QuestionPool {
 
 async function generateSpeakerResponse(
   speaker: AgentConfig,
-  question: string,
+  topic: string,
   previousExchanges: Exchange[],
-  roundNumber: number,
-  questionIndex: number,
+  turnNumber: number,
+  topicIndex: number,
   onChunk: (chunk: string) => void
 ): Promise<string> {
   const messages = previousExchanges.map((ex) => ({
@@ -79,8 +79,8 @@ async function generateSpeakerResponse(
 
   const systemPrompt = `${speaker.systemPrompt}
 
-Current debate question: ${question}
-You are in round ${roundNumber} of this debate.
+Current debate topic: ${topic}
+You are in turn ${turnNumber} of this debate.
 
 Be concise. Keep your response under 300 words.`;
 
@@ -92,7 +92,7 @@ Be concise. Keep your response under 300 words.`;
     messages:
       messages.length > 0
         ? messages
-        : [{ role: "user" as const, content: `Please argue your position on: ${question}` }],
+        : [{ role: "user" as const, content: `Please argue your position on: ${topic}` }],
   });
 
   for await (const chunk of result.textStream) {
@@ -103,54 +103,54 @@ Be concise. Keep your response under 300 words.`;
   return fullMessage;
 }
 
-async function executeQuestion(
-  questionIndex: number,
-  question: string,
+async function executeTopic(
+  topicIndex: number,
+  topic: string,
   config: DebateConfig,
   firstSpeaker: AgentConfig,
   secondSpeaker: AgentConfig,
   judge: AgentConfig,
   callbacks: ParallelDebateCallbacks
-): Promise<QuestionResult> {
+): Promise<TopicResult> {
   const exchanges: Exchange[] = [];
 
-  let questionState: QuestionExecutionState = {
-    questionIndex,
-    question,
+  let topicState: TopicExecutionState = {
+    topicIndex,
+    topic,
     status: "debating",
-    currentRound: 1,
+    currentTurn: 1,
     currentSpeakerId: null,
     exchanges: [],
     streamingText: "",
     verdict: null,
   };
 
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
-  for (let round = 1; round <= config.roundsPerQuestion; round++) {
-    questionState = { ...questionState, currentRound: round };
+  for (let turn = 1; turn <= config.turnsPerTopic; turn++) {
+    topicState = { ...topicState, currentTurn: turn };
 
     // First speaker
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       currentSpeakerId: firstSpeaker.id,
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
 
     const speaker1Message = await generateSpeakerResponse(
       firstSpeaker,
-      question,
+      topic,
       exchanges,
-      round,
-      questionIndex,
+      turn,
+      topicIndex,
       (chunk) => {
-        questionState = {
-          ...questionState,
-          streamingText: questionState.streamingText + chunk,
+        topicState = {
+          ...topicState,
+          streamingText: topicState.streamingText + chunk,
         };
-        callbacks.onQuestionStreamChunk(questionIndex, chunk);
-        callbacks.onQuestionStateChange(questionState);
+        callbacks.onTopicStreamChunk(topicIndex, chunk);
+        callbacks.onTopicStateChange(topicState);
       }
     );
 
@@ -159,38 +159,38 @@ async function executeQuestion(
       speakerId: firstSpeaker.id,
       speakerName: firstSpeaker.name,
       message: speaker1Message,
-      roundNumber: round,
-      questionIndex,
+      turnNumber: turn,
+      topicIndex,
     };
     exchanges.push(exchange1);
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       exchanges: [...exchanges],
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
 
     // Second speaker
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       currentSpeakerId: secondSpeaker.id,
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
 
     const speaker2Message = await generateSpeakerResponse(
       secondSpeaker,
-      question,
+      topic,
       exchanges,
-      round,
-      questionIndex,
+      turn,
+      topicIndex,
       (chunk) => {
-        questionState = {
-          ...questionState,
-          streamingText: questionState.streamingText + chunk,
+        topicState = {
+          ...topicState,
+          streamingText: topicState.streamingText + chunk,
         };
-        callbacks.onQuestionStreamChunk(questionIndex, chunk);
-        callbacks.onQuestionStateChange(questionState);
+        callbacks.onTopicStreamChunk(topicIndex, chunk);
+        callbacks.onTopicStateChange(topicState);
       }
     );
 
@@ -199,44 +199,44 @@ async function executeQuestion(
       speakerId: secondSpeaker.id,
       speakerName: secondSpeaker.name,
       message: speaker2Message,
-      roundNumber: round,
-      questionIndex,
+      turnNumber: turn,
+      topicIndex,
     };
     exchanges.push(exchange2);
-    questionState = {
-      ...questionState,
+    topicState = {
+      ...topicState,
       exchanges: [...exchanges],
       streamingText: "",
     };
-    callbacks.onQuestionStateChange(questionState);
+    callbacks.onTopicStateChange(topicState);
   }
 
-  // Judge this question
-  questionState = {
-    ...questionState,
+  // Judge this topic
+  topicState = {
+    ...topicState,
     status: "judging",
     currentSpeakerId: null,
     streamingText: "",
   };
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
-  const verdict = await judgeQuestion(
-    question,
+  const verdict = await judgeTopic(
+    topic,
     exchanges,
     firstSpeaker,
     secondSpeaker,
     judge
   );
 
-  questionState = {
-    ...questionState,
+  topicState = {
+    ...topicState,
     status: "complete",
     verdict,
   };
-  callbacks.onQuestionStateChange(questionState);
+  callbacks.onTopicStateChange(topicState);
 
   return {
-    question,
+    topic,
     exchanges,
     verdict,
   };
@@ -260,11 +260,11 @@ export function initializeParallelDebate(
     firstSpeaker,
     secondSpeaker,
     judge,
-    currentQuestionIndex: 0,
-    currentRound: 1,
+    currentTopicIndex: 0,
+    currentTurn: 1,
     currentPhase: "setup",
     currentSpeakerId: null,
-    questionResults: [],
+    topicResults: [],
     finalTally: null,
     streamingMessage: "",
   };
@@ -283,14 +283,14 @@ export async function runParallelDebate(
   callbacks.onStateChange(currentState);
 
   const { config, firstSpeaker, secondSpeaker, judge } = currentState;
-  const pool = new QuestionPool(MAX_CONCURRENT_QUESTIONS);
+  const pool = new TopicPool(MAX_CONCURRENT_TOPICS);
 
-  // Run all questions in parallel (limited by pool)
-  const questionPromises = config.questions.map((question, index) =>
+  // Run all topics in parallel (limited by pool)
+  const topicPromises = config.topics.map((topic, index) =>
     pool.add(() =>
-      executeQuestion(
+      executeTopic(
         index,
-        question,
+        topic,
         config,
         firstSpeaker,
         secondSpeaker,
@@ -301,11 +301,11 @@ export async function runParallelDebate(
   );
 
   try {
-    const results = await Promise.all(questionPromises);
+    const results = await Promise.all(topicPromises);
 
-    // Sort results by question index to maintain order
-    currentState.questionResults = results.sort(
-      (a, b) => config.questions.indexOf(a.question) - config.questions.indexOf(b.question)
+    // Sort results by topic index to maintain order
+    currentState.topicResults = results.sort(
+      (a, b) => config.topics.indexOf(a.topic) - config.topics.indexOf(b.topic)
     );
   } catch (error) {
     callbacks.onError(error as Error);
@@ -313,8 +313,8 @@ export async function runParallelDebate(
   }
 
   // Calculate final tally
-  const verdicts = currentState.questionResults
-    .map((qr) => qr.verdict)
+  const verdicts = currentState.topicResults
+    .map((tr) => tr.verdict)
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
   currentState.finalTally = calculateFinalTally(
@@ -334,7 +334,7 @@ export async function runParallelDebate(
       await Promise.all([
         updateAgentAfterDebate(
           firstSpeaker,
-          currentState.questionResults,
+          currentState.topicResults,
           secondSpeaker,
           firstSpeaker.modelId,
           undefined,
@@ -342,7 +342,7 @@ export async function runParallelDebate(
         ),
         updateAgentAfterDebate(
           secondSpeaker,
-          currentState.questionResults,
+          currentState.topicResults,
           firstSpeaker,
           secondSpeaker.modelId,
           undefined,
@@ -375,13 +375,13 @@ export async function completeParallelDebateWithHumanFeedback(
 
   callbacks.onStateChange(currentState);
 
-  const { firstSpeaker, secondSpeaker, questionResults } = currentState;
+  const { firstSpeaker, secondSpeaker, topicResults } = currentState;
 
   try {
     await Promise.all([
       updateAgentAfterDebate(
         firstSpeaker,
-        questionResults,
+        topicResults,
         secondSpeaker,
         firstSpeaker.modelId,
         humanFeedback,
@@ -389,7 +389,7 @@ export async function completeParallelDebateWithHumanFeedback(
       ),
       updateAgentAfterDebate(
         secondSpeaker,
-        questionResults,
+        topicResults,
         firstSpeaker,
         secondSpeaker.modelId,
         humanFeedback,

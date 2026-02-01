@@ -1,37 +1,37 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
-import type { QuestionExecutionState } from "@open-debate/core";
+import type { TopicExecutionState } from "@open-debate/core";
 import { theme } from "../theme.js";
 
 const isTTY = process.stdin.isTTY;
 
-interface QuestionTabBarProps {
-  questionStates: QuestionExecutionState[];
+interface TopicTabBarProps {
+  topicStates: TopicExecutionState[];
   activeIndex: number;
   onSwitch: (index: number) => void;
-  totalRounds: number;
+  totalTurns: number;
 }
 
 function TabBarInput({
-  questionStates,
+  topicStates,
   activeIndex,
   onSwitch,
 }: {
-  questionStates: QuestionExecutionState[];
+  topicStates: TopicExecutionState[];
   activeIndex: number;
   onSwitch: (index: number) => void;
 }) {
   useInput((input, key) => {
-    // Number keys 1-9 to jump to question
+    // Number keys 1-9 to jump to topic
     const num = parseInt(input, 10);
-    if (num >= 1 && num <= 9 && num <= questionStates.length) {
+    if (num >= 1 && num <= 9 && num <= topicStates.length) {
       onSwitch(num - 1);
       return;
     }
 
-    // Tab key to cycle forward through questions
+    // Tab key to cycle forward through topics
     if (input === "\t") {
-      const nextIndex = (activeIndex + 1) % questionStates.length;
+      const nextIndex = (activeIndex + 1) % topicStates.length;
       onSwitch(nextIndex);
       return;
     }
@@ -39,7 +39,7 @@ function TabBarInput({
     // Arrow keys to navigate
     if (key.leftArrow && activeIndex > 0) {
       onSwitch(activeIndex - 1);
-    } else if (key.rightArrow && activeIndex < questionStates.length - 1) {
+    } else if (key.rightArrow && activeIndex < topicStates.length - 1) {
       onSwitch(activeIndex + 1);
     }
   });
@@ -47,15 +47,15 @@ function TabBarInput({
 }
 
 function getStatusText(
-  state: QuestionExecutionState,
-  totalRounds: number
+  state: TopicExecutionState,
+  totalTurns: number
 ): { text: string; color: string } {
   switch (state.status) {
     case "pending":
       return { text: "--", color: theme.dim };
     case "debating":
       return {
-        text: `${state.currentRound}/${totalRounds}`,
+        text: `${state.currentTurn}/${totalTurns}`,
         color: theme.accent,
       };
     case "judging":
@@ -65,13 +65,13 @@ function getStatusText(
   }
 }
 
-export function QuestionTabBar({
-  questionStates,
+export function TopicTabBar({
+  topicStates,
   activeIndex,
   onSwitch,
-  totalRounds,
-}: QuestionTabBarProps) {
-  if (questionStates.length === 0) {
+  totalTurns,
+}: TopicTabBarProps) {
+  if (topicStates.length === 0) {
     return null;
   }
 
@@ -79,24 +79,24 @@ export function QuestionTabBar({
     <>
       {isTTY && (
         <TabBarInput
-          questionStates={questionStates}
+          topicStates={topicStates}
           activeIndex={activeIndex}
           onSwitch={onSwitch}
         />
       )}
       <Box marginBottom={1}>
-        <Text dimColor>[1-{questionStates.length}] </Text>
-        {questionStates.map((state, index) => {
+        <Text dimColor>[1-{topicStates.length}] </Text>
+        {topicStates.map((state, index) => {
           const isActive = index === activeIndex;
-          const { text, color } = getStatusText(state, totalRounds);
+          const { text, color } = getStatusText(state, totalTurns);
 
           return (
-            <React.Fragment key={state.questionIndex}>
+            <React.Fragment key={state.topicIndex}>
               <Text
                 backgroundColor={isActive ? "blue" : undefined}
                 color={isActive ? "white" : undefined}
               >
-                {isActive ? " " : ""}Q{index + 1}{" "}
+                {isActive ? " " : ""}T{index + 1}{" "}
                 <Text
                   color={isActive ? "white" : color}
                   bold={isActive}
@@ -105,7 +105,7 @@ export function QuestionTabBar({
                 </Text>
                 {isActive ? " " : ""}
               </Text>
-              {index < questionStates.length - 1 && (
+              {index < topicStates.length - 1 && (
                 <Text dimColor> | </Text>
               )}
             </React.Fragment>

@@ -6,8 +6,8 @@ const matchConfigSchema = z.object({
   speaker1: z.string().nullable().describe("First speaker - name or persona description, or null if not specified"),
   speaker2: z.string().nullable().describe("Second speaker - name or persona description, or null if not specified"),
   totalDebates: z.number().min(1).max(100).default(1).describe("Number of debates to run"),
-  questionsPerDebate: z.number().min(1).max(50).default(5).describe("Questions per debate"),
-  roundsPerQuestion: z.number().min(1).max(20).default(5).describe("Rounds per question"),
+  topicsPerDebate: z.number().min(1).max(50).default(5).describe("Topics per debate"),
+  turnsPerTopic: z.number().min(1).max(20).default(5).describe("Turns per topic"),
   issueFocus: z.array(z.string()).optional().describe("Specific topics to focus on"),
   narrate: z.boolean().default(true).describe("Enable narrator commentary"),
 });
@@ -38,8 +38,8 @@ Instructions:
 
 2. Extract numeric configuration if mentioned:
    - Number of debates (default: 1)
-   - Questions per debate (default: 5)
-   - Rounds per question (default: 5)
+   - Topics per debate (default: 5)
+   - Turns per topic (default: 5)
 
 3. Extract any topic focus mentioned (e.g., "about climate change", "on economic policy")
 

@@ -4,7 +4,7 @@ import type { Exchange } from "../types/debate.js";
 
 export async function narrateExchange(
   exchange: Exchange,
-  question: string,
+  topic: string,
   modelId: string,
   previousExchanges: Exchange[] = [],
   onChunk?: (chunk: string) => void

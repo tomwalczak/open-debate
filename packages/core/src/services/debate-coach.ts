@@ -3,12 +3,12 @@ import { getModel } from "./model-provider.js";
 import type { Exchange } from "../types/debate.js";
 
 export interface CoachContext {
-  question: string;
+  topic: string;
   speakerName: string;
   speakerPersona: string;
   exchanges: Exchange[];
-  roundNumber: number;
-  totalRounds: number;
+  turnNumber: number;
+  totalTurns: number;
 }
 
 export interface CoachMessage {
@@ -25,10 +25,10 @@ export interface CoachRequest {
 
 export async function getDebateCoaching(request: CoachRequest): Promise<string> {
   const { context, userRequest, conversationHistory, modelId } = request;
-  const { question, speakerName, speakerPersona, exchanges, roundNumber, totalRounds } = context;
+  const { topic, speakerName, speakerPersona, exchanges, turnNumber, totalTurns } = context;
 
   const transcript = exchanges.length > 0
-    ? exchanges.map(ex => `${ex.speakerName} (Round ${ex.roundNumber}):\n${ex.message}`).join("\n\n")
+    ? exchanges.map(ex => `${ex.speakerName} (Turn ${ex.turnNumber}):\n${ex.message}`).join("\n\n")
     : "(No exchanges yet - you speak first)";
 
   const lastOpponentMessage = exchanges.length > 0
@@ -38,8 +38,8 @@ export async function getDebateCoaching(request: CoachRequest): Promise<string> 
   const systemPrompt = `You are a world-class debate coach. Your debater is "${speakerName}" arguing the position: "${speakerPersona}".
 
 DEBATE CONTEXT:
-Question: ${question}
-Round: ${roundNumber}/${totalRounds}
+Topic: ${topic}
+Turn: ${turnNumber}/${totalTurns}
 ${lastOpponentMessage ? `\nOpponent's last argument:\n${lastOpponentMessage}` : ""}
 
 FULL TRANSCRIPT:

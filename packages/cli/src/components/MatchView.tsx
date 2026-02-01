@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
+import type { MatchState, TopicExecutionState, MatchSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
-import { QuestionTabBar } from "./QuestionTabBar.js";
-import { ExpandedQuestionView } from "./ExpandedQuestionView.js";
+import { TopicTabBar } from "./TopicTabBar.js";
+import { ExpandedTopicView } from "./ExpandedTopicView.js";
 import { HumanDebateInput } from "./HumanDebateInput.js";
 import { theme } from "../theme.js";
 
 interface MatchViewProps {
   match: MatchState | null;
   currentDebate: number;
-  questionStates: Map<number, QuestionExecutionState>;
+  topicStates: Map<number, TopicExecutionState>;
   phase: "init" | "generating" | "debating" | "judging" | "learning" | "complete";
   debateResults: Array<{ speaker1Wins: number; speaker2Wins: number }>;
   matchSummary?: MatchSummary | null;
@@ -25,7 +25,7 @@ interface MatchViewProps {
 export function MatchView({
   match,
   currentDebate,
-  questionStates,
+  topicStates,
   phase,
   debateResults,
   matchSummary,
@@ -35,12 +35,12 @@ export function MatchView({
   onHumanContinue,
   onHintRequest,
 }: MatchViewProps) {
-  // Selected question index for tabbed view
-  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
+  // Selected topic index for tabbed view
+  const [selectedTopicIndex, setSelectedTopicIndex] = useState(0);
 
   // Convert map to sorted array
-  const sortedQuestionStates = Array.from(questionStates.values()).sort(
-    (a, b) => a.questionIndex - b.questionIndex
+  const sortedTopicStates = Array.from(topicStates.values()).sort(
+    (a, b) => a.topicIndex - b.topicIndex
   );
 
   // Handle Enter key for continue prompt
@@ -50,24 +50,24 @@ export function MatchView({
     }
   });
 
-  // Auto-select first active question when selection becomes invalid or pending
+  // Auto-select first active topic when selection becomes invalid or pending
   useEffect(() => {
-    if (sortedQuestionStates.length === 0) return;
+    if (sortedTopicStates.length === 0) return;
 
-    const currentSelected = sortedQuestionStates[selectedQuestionIndex];
+    const currentSelected = sortedTopicStates[selectedTopicIndex];
 
     // If current selection is valid and not pending, keep it
     if (currentSelected && currentSelected.status !== "pending") return;
 
-    // Find first active (debating/judging) question
-    const firstActiveIndex = sortedQuestionStates.findIndex(
-      (qs) => qs.status === "debating" || qs.status === "judging"
+    // Find first active (debating/judging) topic
+    const firstActiveIndex = sortedTopicStates.findIndex(
+      (ts) => ts.status === "debating" || ts.status === "judging"
     );
 
-    if (firstActiveIndex !== -1 && firstActiveIndex !== selectedQuestionIndex) {
-      setSelectedQuestionIndex(firstActiveIndex);
+    if (firstActiveIndex !== -1 && firstActiveIndex !== selectedTopicIndex) {
+      setSelectedTopicIndex(firstActiveIndex);
     }
-  }, [sortedQuestionStates, selectedQuestionIndex]);
+  }, [sortedTopicStates, selectedTopicIndex]);
 
   if (!match) {
     return (
@@ -79,12 +79,12 @@ export function MatchView({
 
   const { config, firstSpeaker, secondSpeaker } = match;
   const totalDebates = config.totalDebates;
-  const totalQuestions = config.questionsPerDebate;
+  const totalTopics = config.topicsPerDebate;
 
   // Calculate progress for current debate
-  const totalExchanges = config.questionsPerDebate * config.roundsPerQuestion * 2;
-  const completedExchanges = sortedQuestionStates.reduce(
-    (sum, qs) => sum + qs.exchanges.length,
+  const totalExchanges = config.topicsPerDebate * config.turnsPerTopic * 2;
+  const completedExchanges = sortedTopicStates.reduce(
+    (sum, ts) => sum + ts.exchanges.length,
     0
   );
 
@@ -125,7 +125,7 @@ export function MatchView({
       {/* Phase indicator */}
       {phase === "generating" && (
         <Box marginBottom={1}>
-          <Spinner label="Generating questions..." />
+          <Spinner label="Generating topics..." />
         </Box>
       )}
 
@@ -138,21 +138,21 @@ export function MatchView({
       {/* Human Input UI */}
       {humanInputContext && onHumanResponse && onHintRequest && (
         <HumanDebateInput
-          roundNumber={humanInputContext.roundNumber}
-          totalRounds={humanInputContext.totalRounds}
-          question={humanInputContext.question}
+          turnNumber={humanInputContext.turnNumber}
+          totalTurns={humanInputContext.totalTurns}
+          topic={humanInputContext.topic}
           speakerName={humanInputContext.speakerName}
           speakerId={humanInputContext.currentSpeakerId}
           speakerPersona={humanInputContext.speakerPersona}
           exchanges={humanInputContext.exchanges}
           onSubmit={onHumanResponse}
           onHintRequest={(conversationHistory, userRequest) => onHintRequest({
-            question: humanInputContext.question,
+            topic: humanInputContext.topic,
             speakerName: humanInputContext.speakerName,
             speakerPersona: humanInputContext.speakerPersona,
             exchanges: humanInputContext.exchanges,
-            roundNumber: humanInputContext.roundNumber,
-            totalRounds: humanInputContext.totalRounds,
+            turnNumber: humanInputContext.turnNumber,
+            totalTurns: humanInputContext.totalTurns,
           }, conversationHistory, userRequest)}
         />
       )}
@@ -162,12 +162,12 @@ export function MatchView({
         <Box flexDirection="column" gap={1} paddingX={1}>
           <Box borderStyle="single" borderColor="yellow" paddingX={1}>
             <Text bold color="yellow">
-              {humanContinueContext.opponentName} responded - Round {humanContinueContext.roundNumber}/{humanContinueContext.totalRounds}
+              {humanContinueContext.opponentName} responded - Turn {humanContinueContext.turnNumber}/{humanContinueContext.totalTurns}
             </Text>
           </Box>
 
           <Text wrap="wrap" dimColor>
-            <Text bold>Question:</Text> {humanContinueContext.question}
+            <Text bold>Topic:</Text> {humanContinueContext.topic}
           </Text>
 
           <Box flexDirection="column" marginTop={1}>
@@ -179,7 +179,7 @@ export function MatchView({
 
           <Box marginTop={1} borderStyle="round" borderColor="green" paddingX={1}>
             <Text color="green">
-              {humanContinueContext.isLastRound
+              {humanContinueContext.isLastTurn
                 ? "Press Enter to proceed to judging..."
                 : "Press Enter to continue to your turn..."}
             </Text>
@@ -196,24 +196,24 @@ export function MatchView({
             label={`Debate ${currentDebate}:`}
           />
 
-          {/* Question Tab Bar and Expanded View */}
-          {sortedQuestionStates.length > 0 && (
+          {/* Topic Tab Bar and Expanded View */}
+          {sortedTopicStates.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
-              <QuestionTabBar
-                questionStates={sortedQuestionStates}
-                activeIndex={selectedQuestionIndex}
-                onSwitch={setSelectedQuestionIndex}
-                totalRounds={config.roundsPerQuestion}
+              <TopicTabBar
+                topicStates={sortedTopicStates}
+                activeIndex={selectedTopicIndex}
+                onSwitch={setSelectedTopicIndex}
+                totalTurns={config.turnsPerTopic}
               />
-              {sortedQuestionStates[selectedQuestionIndex] && (
-                <ExpandedQuestionView
-                  state={sortedQuestionStates[selectedQuestionIndex]}
+              {sortedTopicStates[selectedTopicIndex] && (
+                <ExpandedTopicView
+                  state={sortedTopicStates[selectedTopicIndex]}
                   speaker1Id={firstSpeaker.id}
                   speaker2Id={secondSpeaker.id}
                   speaker1Name={firstSpeaker.name}
                   speaker2Name={secondSpeaker.name}
-                  totalRounds={config.roundsPerQuestion}
-                  totalQuestions={totalQuestions}
+                  totalTurns={config.turnsPerTopic}
+                  totalTopics={totalTopics}
                 />
               )}
             </Box>

@@ -3,7 +3,7 @@ import { Box, Text } from "ink";
 import type { DebateState } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
-import { QuestionProgress } from "./QuestionProgress.js";
+import { TopicProgress } from "./TopicProgress.js";
 import { ExchangeMessage } from "./ExchangeMessage.js";
 import { JudgeVerdict } from "./JudgeVerdict.js";
 import { FinalTally } from "./FinalTally.js";
@@ -20,27 +20,27 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
     firstSpeaker,
     secondSpeaker,
     config,
-    currentQuestionIndex,
-    currentRound,
+    currentTopicIndex,
+    currentTurn,
     currentPhase,
     currentSpeakerId,
-    questionResults,
+    topicResults,
     finalTally,
   } = state;
 
-  const currentQuestion = config.questions[currentQuestionIndex];
-  const totalExchanges = config.questions.length * config.roundsPerQuestion * 2;
-  const completedExchanges = questionResults.reduce(
-    (sum, qr) => sum + qr.exchanges.length,
+  const currentTopic = config.topics[currentTopicIndex];
+  const totalExchanges = config.topics.length * config.turnsPerTopic * 2;
+  const completedExchanges = topicResults.reduce(
+    (sum, tr) => sum + tr.exchanges.length,
     0
   );
 
   const currentSpeaker =
     currentSpeakerId === firstSpeaker.id ? firstSpeaker : secondSpeaker;
 
-  // Get current question's exchanges
+  // Get current topic's exchanges
   const currentExchanges =
-    questionResults[currentQuestionIndex]?.exchanges || [];
+    topicResults[currentTopicIndex]?.exchanges || [];
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -60,15 +60,15 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
         label="Progress:"
       />
 
-      {/* Current question info */}
-      {currentPhase === "debating" && currentQuestion && (
+      {/* Current topic info */}
+      {currentPhase === "debating" && currentTopic && (
         <Box marginTop={1}>
-          <QuestionProgress
-            currentQuestion={currentQuestionIndex}
-            totalQuestions={config.questions.length}
-            currentRound={currentRound}
-            totalRounds={config.roundsPerQuestion}
-            question={currentQuestion}
+          <TopicProgress
+            currentTopic={currentTopicIndex}
+            totalTopics={config.topics.length}
+            currentTurn={currentTurn}
+            totalTurns={config.turnsPerTopic}
+            topic={currentTopic}
           />
         </Box>
       )}
@@ -90,7 +90,7 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
       {currentPhase === "debating" && currentSpeakerId && streamingText && (
         <Box flexDirection="column" marginTop={1}>
           <Text bold color={currentSpeakerId === firstSpeaker.id ? "blue" : "magenta"}>
-            {currentSpeaker.name} (Round {currentRound})
+            {currentSpeaker.name} (Turn {currentTurn})
           </Text>
           <Box marginLeft={2}>
             <Text wrap="wrap">{streamingText}</Text>
@@ -112,14 +112,14 @@ export function DebateView({ state, streamingText, onHumanFeedback }: DebateView
         <Spinner label="Agents are learning from debate..." />
       )}
 
-      {/* Question verdicts */}
-      {questionResults
-        .filter((qr) => qr.verdict)
-        .map((qr, i) => (
+      {/* Topic verdicts */}
+      {topicResults
+        .filter((tr) => tr.verdict)
+        .map((tr, i) => (
           <JudgeVerdict
             key={i}
-            verdict={qr.verdict!}
-            questionNumber={i + 1}
+            verdict={tr.verdict!}
+            topicNumber={i + 1}
             speaker1Id={firstSpeaker.id}
             speaker2Id={secondSpeaker.id}
             speaker1Name={firstSpeaker.name}

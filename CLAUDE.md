@@ -57,15 +57,15 @@ open-debate/
 
 ```
 CLI args / Wizard → App (state orchestrator) → runMatch (match-engine.ts)
-    → Question generation → Parallel question execution (max 5 concurrent)
-    → For each question: Round exchanges → Judge verdict
+    → Topic generation → Parallel topic execution (max 5 concurrent)
+    → For each topic: Turn exchanges → Judge verdict
     → Self-improvement loop → Next debate
 ```
 
 ### Key Services (packages/core/src/services/)
 
 - **model-provider.ts** - Multi-backend model initialization (OpenAI, Anthropic, Google, OpenRouter). Format: `backend:model-id` or just `model-id` (defaults to OpenRouter)
-- **match-engine.ts** - High-level match orchestration with `QuestionPool` for concurrent question execution
+- **match-engine.ts** - High-level match orchestration with `TopicPool` for concurrent topic execution
 - **debate-engine.ts** - `runDebate`, `generateSpeakerResponse` with streaming
 - **agent-learner.ts** - Self-improvement via `generateSelfAnalysis`, writes to `learnings.md`
 - **judge-service.ts** - `verdictSchema` validation with Zod, `calculateFinalTally`
@@ -79,16 +79,16 @@ CLI args / Wizard → App (state orchestrator) → runMatch (match-engine.ts)
 
 ### Component Structure (packages/cli/src/components/)
 
-- **MatchView.tsx** - Main match display with tabbed questions
+- **MatchView.tsx** - Main match display with tabbed topics
 - **DebateView.tsx** - Single debate view
-- **QuestionTabBar.tsx** - Tab navigation (1-9 keys)
+- **TopicTabBar.tsx** - Tab navigation (1-9 keys)
 - **Wizard/** - 6 input screens for interactive setup
 
 ### Important Constants
 
 - `PROMPT_MAX_LENGTH = 5000` (packages/core/src/types/agent.ts) - Max agent prompt size
 - `DEFAULT_MODEL_ID = "qwen/qwen3-next-80b-a3b-instruct"` - Default model via OpenRouter
-- Max concurrent questions: 5 (prevents API rate limiting)
+- Max concurrent topics: 5 (prevents API rate limiting)
 
 ## Importing from Core
 
@@ -119,7 +119,7 @@ Required env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_
 matches/{DATE}-{SEQ}-{S1}-vs-{S2}-{ADJ-NOUN}/
 ├── config.json
 ├── debate-N/
-│   ├── questions.json
+│   ├── topics.json
 │   ├── transcript.json
 │   └── verdicts.json
 ├── agents/{speaker-id}/

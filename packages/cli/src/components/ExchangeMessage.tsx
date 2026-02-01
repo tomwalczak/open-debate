@@ -15,7 +15,7 @@ export const ExchangeMessage = memo(function ExchangeMessage({ exchange, speaker
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text bold color={color}>
-        {exchange.speakerName} (Round {exchange.roundNumber})
+        {exchange.speakerName} (Turn {exchange.turnNumber})
       </Text>
       <Box marginLeft={2}>
         <Text wrap="wrap">{exchange.message}</Text>

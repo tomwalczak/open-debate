@@ -4,7 +4,7 @@ import {
   SpeakerInput,
   SettingsInput,
   TopicFocusInput,
-  QuestionReview,
+  TopicReview,
   OptionsToggle,
   ConfirmStart,
   MatchView,
@@ -22,7 +22,7 @@ import {
   type ParsedMatchConfig,
   type MatchConfig,
   type MatchState,
-  type QuestionExecutionState,
+  type TopicExecutionState,
   type WizardState,
   type Exchange,
   type HumanInputContext,
@@ -41,8 +41,8 @@ export interface AppProps {
     seed2?: string;
     directPrompt1?: string;
     directPrompt2?: string;
-    rounds?: number;
-    questions?: number;
+    turns?: number;
+    topics?: number;
     issues?: string;
     humanCoach?: boolean;
     debates?: number;
@@ -65,7 +65,7 @@ export function App({ cliArgs }: AppProps) {
   const [match, setMatch] = useState<MatchState | null>(null);
   const [currentDebate, setCurrentDebate] = useState(1);
   const [phase, setPhase] = useState<MatchPhase>("init");
-  const [questionStates, setQuestionStates] = useState<Map<number, QuestionExecutionState>>(new Map());
+  const [topicStates, setTopicStates] = useState<Map<number, TopicExecutionState>>(new Map());
   const [debateResults, setDebateResults] = useState<Array<{ speaker1Wins: number; speaker2Wins: number }>>([]);
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +82,7 @@ export function App({ cliArgs }: AppProps) {
     },
     onDebateStart: (debateNumber: number) => {
       setCurrentDebate(debateNumber);
-      setQuestionStates(new Map());
+      setTopicStates(new Map());
       setPhase("generating");
     },
     onDebateEnd: (debateNumber: number, speaker1Wins: number, speaker2Wins: number) => {
@@ -94,21 +94,21 @@ export function App({ cliArgs }: AppProps) {
     onMatchSummary: (summary: MatchSummary) => {
       setMatchSummary(summary);
     },
-    onQuestionStateChange: (questionState: QuestionExecutionState) => {
-      setQuestionStates((prev) => {
+    onTopicStateChange: (topicState: TopicExecutionState) => {
+      setTopicStates((prev) => {
         const newMap = new Map(prev);
-        newMap.set(questionState.questionIndex, questionState);
+        newMap.set(topicState.topicIndex, topicState);
         return newMap;
       });
-      // Update phase based on question states
-      if (questionState.status === "debating") {
+      // Update phase based on topic states
+      if (topicState.status === "debating") {
         setPhase("debating");
-      } else if (questionState.status === "judging") {
+      } else if (topicState.status === "judging") {
         setPhase("judging");
       }
     },
-    onQuestionStreamChunk: (_questionIndex: number, _chunk: string) => {
-      // Streaming is handled via onQuestionStateChange
+    onTopicStreamChunk: (_topicIndex: number, _chunk: string) => {
+      // Streaming is handled via onTopicStateChange
     },
     onLearning: () => {
       setPhase("learning");
@@ -214,8 +214,8 @@ export function App({ cliArgs }: AppProps) {
         speaker1Persona: parsed.speaker1,
         speaker2Persona: parsed.speaker2,
         totalDebates: parsed.totalDebates,
-        questionsPerDebate: parsed.questionsPerDebate,
-        roundsPerQuestion: parsed.roundsPerQuestion,
+        topicsPerDebate: parsed.topicsPerDebate,
+        turnsPerTopic: parsed.turnsPerTopic,
         humanCoachEnabled: cliArgs.humanCoach ?? false,
         selfImprove: cliArgs.selfImprove ?? true,
         issueFocus: parsed.issueFocus,
@@ -247,8 +247,8 @@ export function App({ cliArgs }: AppProps) {
       speaker1Persona: cliArgs.speaker1,  // Keep full persona for prompt generation
       speaker2Persona: cliArgs.speaker2,
       totalDebates: cliArgs.debates || 1,
-      questionsPerDebate: cliArgs.questions || 5,
-      roundsPerQuestion: cliArgs.rounds || 3,
+      topicsPerDebate: cliArgs.topics || 5,
+      turnsPerTopic: cliArgs.turns || 3,
       humanCoachEnabled: cliArgs.humanCoach ?? false,
       selfImprove: cliArgs.selfImprove ?? true,
       issueFocus: issues.length > 0 ? issues : undefined,
@@ -300,8 +300,8 @@ export function App({ cliArgs }: AppProps) {
       speaker1Persona: parsed.speaker1,
       speaker2Persona: parsed.speaker2,
       totalDebates: parsed.totalDebates,
-      questionsPerDebate: parsed.questionsPerDebate,
-      roundsPerQuestion: parsed.roundsPerQuestion,
+      topicsPerDebate: parsed.topicsPerDebate,
+      turnsPerTopic: parsed.turnsPerTopic,
       humanCoachEnabled: false,
       selfImprove: true,
       issueFocus: parsed.issueFocus,
@@ -326,8 +326,8 @@ export function App({ cliArgs }: AppProps) {
       speaker1Persona: wizard.speaker1Persona,
       speaker2Persona: wizard.speaker2Persona,
       totalDebates: wizard.debateCount,
-      questionsPerDebate: wizard.questionCount,
-      roundsPerQuestion: wizard.roundsPerQuestion,
+      topicsPerDebate: wizard.topicCount,
+      turnsPerTopic: wizard.turnsPerTopic,
       humanCoachEnabled: false,
       selfImprove: true,
       modelId,
@@ -343,11 +343,11 @@ export function App({ cliArgs }: AppProps) {
     setWizard((prev) => ({ ...prev, step: "settings" }));
   };
 
-  const handleSettings = (rounds: number, questionCount: number, debateCount: number) => {
+  const handleSettings = (turns: number, topicCount: number, debateCount: number) => {
     setWizard((prev) => ({
       ...prev,
-      roundsPerQuestion: rounds,
-      questionCount,
+      turnsPerTopic: turns,
+      topicCount,
       debateCount,
       step: "topic_focus",
     }));
@@ -374,8 +374,8 @@ export function App({ cliArgs }: AppProps) {
       speaker1Persona: wizard.speaker1Persona,
       speaker2Persona: wizard.speaker2Persona,
       totalDebates: wizard.debateCount || 1,
-      questionsPerDebate: wizard.questionCount,
-      roundsPerQuestion: wizard.roundsPerQuestion,
+      topicsPerDebate: wizard.topicCount,
+      turnsPerTopic: wizard.turnsPerTopic,
       humanCoachEnabled: false,
       selfImprove: true,
       issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
@@ -411,8 +411,8 @@ export function App({ cliArgs }: AppProps) {
           <ConfirmStart
             speaker1Name={wizard.speaker1Name}
             speaker2Name={wizard.speaker2Name}
-            rounds={wizard.roundsPerQuestion}
-            questions={wizard.questionCount}
+            turns={wizard.turnsPerTopic}
+            topics={wizard.topicCount}
             debates={wizard.debateCount}
             narrate={wizard.narrate}
             onConfirm={handleConfirmStart}
@@ -431,7 +431,7 @@ export function App({ cliArgs }: AppProps) {
     <MatchView
       match={match}
       currentDebate={currentDebate}
-      questionStates={questionStates}
+      topicStates={topicStates}
       phase={phase}
       debateResults={debateResults}
       matchSummary={matchSummary}

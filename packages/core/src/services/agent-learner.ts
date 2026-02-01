@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { getModel } from "./model-provider.js";
 import { saveAgentPrompt, appendAgentLearnings, readAgentLearnings, generatePromptFromLearnings } from "./match-storage.js";
 import type { AgentConfig } from "../types/agent.js";
-import type { QuestionResult } from "../types/debate.js";
+import type { TopicResult } from "../types/debate.js";
 
 function formatDate(): string {
   return new Date().toISOString().split("T")[0];
@@ -11,18 +11,18 @@ function formatDate(): string {
 function generateLogEntry(
   agent: AgentConfig,
   opponent: AgentConfig,
-  results: QuestionResult[],
+  results: TopicResult[],
   humanFeedback?: string
 ): string {
   const date = formatDate();
 
   const resultsText = results
-    .map((qr, i) => {
-      if (!qr.verdict) return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - NO VERDICT`;
+    .map((tr, i) => {
+      if (!tr.verdict) return `- Topic ${i + 1}: "${tr.topic.slice(0, 40)}..." - NO VERDICT`;
 
-      const won = qr.verdict.winnerId === agent.id;
+      const won = tr.verdict.winnerId === agent.id;
       const outcome = won ? "WON" : "LOST";
-      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reasoning.slice(0, 100)}..."`;
+      return `- Topic ${i + 1}: "${tr.topic.slice(0, 40)}..." - ${outcome} - Judge: "${tr.verdict.reasoning.slice(0, 100)}..."`;
     })
     .join("\n");
 
@@ -48,23 +48,23 @@ ${resultsText}
 async function generateSelfAnalysis(
   agent: AgentConfig,
   opponent: AgentConfig,
-  results: QuestionResult[],
+  results: TopicResult[],
   modelId: string
 ): Promise<{ worked: string; improve: string }> {
   const transcript = results
-    .map((qr, i) => {
-      // Group exchanges by round
-      const roundsMap = new Map<number, typeof qr.exchanges>();
-      for (const ex of qr.exchanges) {
-        const round = roundsMap.get(ex.roundNumber) || [];
-        round.push(ex);
-        roundsMap.set(ex.roundNumber, round);
+    .map((tr, i) => {
+      // Group exchanges by turn
+      const turnsMap = new Map<number, typeof tr.exchanges>();
+      for (const ex of tr.exchanges) {
+        const turn = turnsMap.get(ex.turnNumber) || [];
+        turn.push(ex);
+        turnsMap.set(ex.turnNumber, turn);
       }
 
-      // Build round-by-round transcript with clear XML structure
-      const roundsText = Array.from(roundsMap.entries())
+      // Build turn-by-turn transcript with clear XML structure
+      const turnsText = Array.from(turnsMap.entries())
         .sort(([a], [b]) => a - b)
-        .map(([roundNum, exchanges]) => {
+        .map(([turnNum, exchanges]) => {
           const exchangesText = exchanges
             .map((ex) => {
               const role = ex.speakerId === agent.id ? "me" : "opponent";
@@ -73,33 +73,33 @@ ${ex.message}
     </speaker>`;
             })
             .join("\n\n");
-          return `  <round number="${roundNum}">
+          return `  <turn number="${turnNum}">
 ${exchangesText}
-  </round>`;
+  </turn>`;
         })
         .join("\n\n");
 
       // Build verdict section
-      const won = qr.verdict?.winnerId === agent.id;
-      const verdictText = qr.verdict
+      const won = tr.verdict?.winnerId === agent.id;
+      const verdictText = tr.verdict
         ? `  <verdict>
     <outcome>${won ? "I WON" : "I LOST"}</outcome>
     <winner>${won ? agent.name : opponent.name}</winner>
-    <reasoning>${qr.verdict.reasoning}</reasoning>
+    <reasoning>${tr.verdict.reasoning}</reasoning>
   </verdict>`
         : `  <verdict>
     <outcome>NO VERDICT</outcome>
   </verdict>`;
 
-      return `<question number="${i + 1}">
-  <topic>${qr.question}</topic>
+      return `<topic number="${i + 1}">
+  <subject>${tr.topic}</subject>
 
   <transcript>
-${roundsText}
+${turnsText}
   </transcript>
 
 ${verdictText}
-</question>`;
+</topic>`;
     })
     .join("\n\n");
 
@@ -134,7 +134,7 @@ Be specific and concise (under 150 characters each).`,
 
 export async function updateAgentAfterDebate(
   agent: AgentConfig,
-  debateResults: QuestionResult[],
+  debateResults: TopicResult[],
   opponent: AgentConfig,
   modelId: string,
   humanFeedback?: string,
@@ -151,12 +151,12 @@ export async function updateAgentAfterDebate(
   // Create learnings entry with analysis
   const date = formatDate();
   const resultsText = debateResults
-    .map((qr, i) => {
-      if (!qr.verdict) return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - NO VERDICT`;
+    .map((tr, i) => {
+      if (!tr.verdict) return `- Topic ${i + 1}: "${tr.topic.slice(0, 40)}..." - NO VERDICT`;
 
-      const won = qr.verdict.winnerId === agent.id;
+      const won = tr.verdict.winnerId === agent.id;
       const outcome = won ? "WON" : "LOST";
-      return `- Q${i + 1}: "${qr.question.slice(0, 40)}..." - ${outcome} - Judge: "${qr.verdict.reasoning.slice(0, 100)}..."`;
+      return `- Topic ${i + 1}: "${tr.topic.slice(0, 40)}..." - ${outcome} - Judge: "${tr.verdict.reasoning.slice(0, 100)}..."`;
     })
     .join("\n");
 

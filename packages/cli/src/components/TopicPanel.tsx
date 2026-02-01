@@ -1,25 +1,25 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { QuestionExecutionState } from "@open-debate/core";
+import type { TopicExecutionState } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { theme } from "../theme.js";
 
-interface QuestionPanelProps {
-  state: QuestionExecutionState;
+interface TopicPanelProps {
+  state: TopicExecutionState;
   speaker1Id: string;
   speaker1Name: string;
   speaker2Name: string;
-  totalRounds: number;
+  totalTurns: number;
 }
 
-export function QuestionPanel({
+export function TopicPanel({
   state,
   speaker1Id,
   speaker1Name,
   speaker2Name,
-  totalRounds,
-}: QuestionPanelProps) {
-  const { questionIndex, question, status, currentRound, currentSpeakerId, streamingText, verdict, narratorSummary, isNarratorStreaming } = state;
+  totalTurns,
+}: TopicPanelProps) {
+  const { topicIndex, topic, status, currentTurn, currentSpeakerId, streamingText, verdict, narratorSummary, isNarratorStreaming } = state;
 
   const currentSpeakerName = currentSpeakerId === speaker1Id ? speaker1Name : speaker2Name;
   const speakerColor = currentSpeakerId === speaker1Id ? theme.speaker1 : theme.speaker2;
@@ -31,7 +31,7 @@ export function QuestionPanel({
       case "debating":
         return (
           <Text color={theme.accent}>
-            R{currentRound}/{totalRounds}
+            T{currentTurn}/{totalTurns}
           </Text>
         );
       case "judging":
@@ -54,11 +54,11 @@ export function QuestionPanel({
       paddingX={1}
       marginBottom={1}
     >
-      {/* Question header */}
+      {/* Topic header */}
       <Box>
         <Box flexGrow={1} marginRight={1}>
           <Text bold wrap="wrap">
-            Q{questionIndex + 1}: "{question}"
+            T{topicIndex + 1}: "{topic}"
           </Text>
         </Box>
         {getStatusIndicator()}
@@ -104,7 +104,7 @@ export function QuestionPanel({
 
         {status === "complete" && verdict && (
           <Box>
-            <Text color={theme.success}>🏆 </Text>
+            <Text color={theme.success}>Winner: </Text>
             <Text bold color={verdict.winnerId === speaker1Id ? theme.speaker1 : theme.speaker2}>
               {verdict.winnerId === speaker1Id ? speaker1Name : speaker2Name}
             </Text>

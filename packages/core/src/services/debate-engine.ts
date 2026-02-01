@@ -2,7 +2,7 @@ import { streamText } from "ai";
 import { getModel } from "./model-provider.js";
 import { createAgent } from "./agent-storage.js";
 import { createJudgeAgent } from "./agent-factory.js";
-import { judgeQuestion, calculateFinalTally } from "./judge-service.js";
+import { judgeTopic, calculateFinalTally } from "./judge-service.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
 import { generateDebateId, generateId } from "../utils/id.js";
 import { saveDebateLogs } from "../utils/logger.js";
@@ -11,7 +11,7 @@ import type {
   DebateState,
   DebateConfig,
   Exchange,
-  QuestionResult,
+  TopicResult,
 } from "../types/debate.js";
 
 export interface DebateEngineCallbacks {
@@ -39,11 +39,11 @@ export function initializeDebate(
     firstSpeaker,
     secondSpeaker,
     judge,
-    currentQuestionIndex: 0,
-    currentRound: 1,
+    currentTopicIndex: 0,
+    currentTurn: 1,
     currentPhase: "setup",
     currentSpeakerId: null,
-    questionResults: [],
+    topicResults: [],
     finalTally: null,
     streamingMessage: "",
   };
@@ -54,9 +54,9 @@ export function initializeDebate(
 
 async function generateSpeakerResponse(
   speaker: AgentConfig,
-  question: string,
+  topic: string,
   previousExchanges: Exchange[],
-  roundNumber: number,
+  turnNumber: number,
   callbacks: DebateEngineCallbacks
 ): Promise<string> {
   const messages = previousExchanges.map((ex) => ({
@@ -66,8 +66,8 @@ async function generateSpeakerResponse(
 
   const systemPrompt = `${speaker.systemPrompt}
 
-Current debate question: ${question}
-You are in round ${roundNumber} of this debate.
+Current debate topic: ${topic}
+You are in turn ${turnNumber} of this debate.
 
 Be concise. Keep your response under 300 words.`;
 
@@ -79,7 +79,7 @@ Be concise. Keep your response under 300 words.`;
     messages:
       messages.length > 0
         ? messages
-        : [{ role: "user" as const, content: `Please argue your position on: ${question}` }],
+        : [{ role: "user" as const, content: `Please argue your position on: ${topic}` }],
   });
 
   for await (const chunk of result.textStream) {
@@ -100,15 +100,15 @@ export async function runDebate(
 
   const { config, firstSpeaker, secondSpeaker, judge } = currentState;
 
-  for (let qIndex = 0; qIndex < config.questions.length; qIndex++) {
-    const question = config.questions[qIndex];
+  for (let tIndex = 0; tIndex < config.topics.length; tIndex++) {
+    const topic = config.topics[tIndex];
     const exchanges: Exchange[] = [];
 
-    currentState.currentQuestionIndex = qIndex;
+    currentState.currentTopicIndex = tIndex;
     callbacks.onStateChange(currentState);
 
-    for (let round = 1; round <= config.roundsPerQuestion; round++) {
-      currentState.currentRound = round;
+    for (let turn = 1; turn <= config.turnsPerTopic; turn++) {
+      currentState.currentTurn = turn;
 
       // First speaker
       currentState.currentSpeakerId = firstSpeaker.id;
@@ -117,9 +117,9 @@ export async function runDebate(
 
       const speaker1Message = await generateSpeakerResponse(
         firstSpeaker,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         callbacks
       );
 
@@ -128,8 +128,8 @@ export async function runDebate(
         speakerId: firstSpeaker.id,
         speakerName: firstSpeaker.name,
         message: speaker1Message,
-        roundNumber: round,
-        questionIndex: qIndex,
+        turnNumber: turn,
+        topicIndex: tIndex,
       });
 
       // Second speaker
@@ -139,9 +139,9 @@ export async function runDebate(
 
       const speaker2Message = await generateSpeakerResponse(
         secondSpeaker,
-        question,
+        topic,
         exchanges,
-        round,
+        turn,
         callbacks
       );
 
@@ -150,39 +150,39 @@ export async function runDebate(
         speakerId: secondSpeaker.id,
         speakerName: secondSpeaker.name,
         message: speaker2Message,
-        roundNumber: round,
-        questionIndex: qIndex,
+        turnNumber: turn,
+        topicIndex: tIndex,
       });
     }
 
-    // Judge this question
+    // Judge this topic
     currentState.currentPhase = "judging";
     currentState.currentSpeakerId = null;
     currentState.streamingMessage = "";
     callbacks.onStateChange(currentState);
 
-    const verdict = await judgeQuestion(
-      question,
+    const verdict = await judgeTopic(
+      topic,
       exchanges,
       firstSpeaker,
       secondSpeaker,
       judge
     );
 
-    const questionResult: QuestionResult = {
-      question,
+    const topicResult: TopicResult = {
+      topic,
       exchanges,
       verdict,
     };
 
-    currentState.questionResults.push(questionResult);
+    currentState.topicResults.push(topicResult);
     currentState.currentPhase = "debating";
     callbacks.onStateChange(currentState);
   }
 
   // Calculate final tally
-  const verdicts = currentState.questionResults
-    .map((qr) => qr.verdict)
+  const verdicts = currentState.topicResults
+    .map((tr) => tr.verdict)
     .filter((v): v is NonNullable<typeof v> => v !== null);
 
   currentState.finalTally = calculateFinalTally(
@@ -203,13 +203,13 @@ export async function runDebate(
       await Promise.all([
         updateAgentAfterDebate(
           firstSpeaker,
-          currentState.questionResults,
+          currentState.topicResults,
           secondSpeaker,
           firstSpeaker.modelId
         ),
         updateAgentAfterDebate(
           secondSpeaker,
-          currentState.questionResults,
+          currentState.topicResults,
           firstSpeaker,
           secondSpeaker.modelId
         ),
@@ -239,21 +239,21 @@ export async function completeDebateWithHumanFeedback(
 
   callbacks.onStateChange(currentState);
 
-  const { firstSpeaker, secondSpeaker, questionResults } = currentState;
+  const { firstSpeaker, secondSpeaker, topicResults } = currentState;
 
   // Trigger agent learning for both speakers with human feedback
   try {
     await Promise.all([
       updateAgentAfterDebate(
         firstSpeaker,
-        questionResults,
+        topicResults,
         secondSpeaker,
         firstSpeaker.modelId,
         humanFeedback
       ),
       updateAgentAfterDebate(
         secondSpeaker,
-        questionResults,
+        topicResults,
         firstSpeaker,
         secondSpeaker.modelId,
         humanFeedback

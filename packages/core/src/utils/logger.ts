@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
-import type { DebateState, QuestionResult } from "../types/index.js";
+import type { DebateState, TopicResult } from "../types/index.js";
 
 const LOGS_DIR = "logs";
 
@@ -27,7 +27,7 @@ export function writeDebateJson(state: DebateState): void {
       name: state.secondSpeaker.name,
       dirPath: state.secondSpeaker.dirPath,
     },
-    questionResults: state.questionResults,
+    topicResults: state.topicResults,
     finalTally: state.finalTally,
     humanFeedback: state.humanFeedback,
     completedAt: new Date().toISOString(),
@@ -40,7 +40,7 @@ export function writeTranscriptMd(state: DebateState): void {
 
   let md = `# Debate: ${state.firstSpeaker.name} vs ${state.secondSpeaker.name}\n\n`;
   md += `**Date**: ${new Date().toISOString()}\n`;
-  md += `**Rounds per Question**: ${state.config.roundsPerQuestion}\n\n`;
+  md += `**Turns per Topic**: ${state.config.turnsPerTopic}\n\n`;
 
   if (state.config.issueFocus && state.config.issueFocus.length > 0) {
     md += `**Issue Focus**: ${state.config.issueFocus.join(", ")}\n\n`;
@@ -48,21 +48,21 @@ export function writeTranscriptMd(state: DebateState): void {
 
   md += `---\n\n`;
 
-  state.questionResults.forEach((qr: QuestionResult, qIndex: number) => {
-    md += `## Question ${qIndex + 1}: ${qr.question}\n\n`;
+  state.topicResults.forEach((tr: TopicResult, tIndex: number) => {
+    md += `## Topic ${tIndex + 1}: ${tr.topic}\n\n`;
 
-    qr.exchanges.forEach((ex) => {
-      md += `### ${ex.speakerName} (Round ${ex.roundNumber})\n\n`;
+    tr.exchanges.forEach((ex) => {
+      md += `### ${ex.speakerName} (Turn ${ex.turnNumber})\n\n`;
       md += `${ex.message}\n\n`;
     });
 
-    if (qr.verdict) {
-      const winnerName = qr.verdict.winnerId === state.firstSpeaker.id
+    if (tr.verdict) {
+      const winnerName = tr.verdict.winnerId === state.firstSpeaker.id
         ? state.firstSpeaker.name
         : state.secondSpeaker.name;
       md += `### Judge Verdict\n\n`;
       md += `**Winner**: ${winnerName}\n\n`;
-      md += `**Reasoning**: ${qr.verdict.reasoning}\n\n`;
+      md += `**Reasoning**: ${tr.verdict.reasoning}\n\n`;
     }
 
     md += `---\n\n`;

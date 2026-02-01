@@ -8,8 +8,8 @@ export interface MatchConfig {
   speaker1Persona?: string;  // Full persona description (for prompt generation)
   speaker2Persona?: string;  // Full persona description (for prompt generation)
   totalDebates: number;
-  questionsPerDebate: number;
-  roundsPerQuestion: number;
+  topicsPerDebate: number;
+  turnsPerTopic: number;
   humanCoachEnabled: boolean;
   selfImprove: boolean;
   issueFocus?: string[];
@@ -35,18 +35,18 @@ export interface MatchState {
 
 export interface DebateResult {
   debateNumber: number;
-  questionResults: QuestionResult[];
+  topicResults: TopicResult[];
   finalTally: FinalTally;
   completedAt: string;
 }
 
-export type QuestionStatus = "pending" | "debating" | "judging" | "complete";
+export type TopicStatus = "pending" | "debating" | "judging" | "complete";
 
-export interface QuestionExecutionState {
-  questionIndex: number;
-  question: string;
-  status: QuestionStatus;
-  currentRound: number;
+export interface TopicExecutionState {
+  topicIndex: number;
+  topic: string;
+  status: TopicStatus;
+  currentTurn: number;
   currentSpeakerId: string | null;
   exchanges: Exchange[];
   streamingText: string;
@@ -60,19 +60,19 @@ export interface Exchange {
   speakerId: string;
   speakerName: string;
   message: string;
-  roundNumber: number;
-  questionIndex: number;
+  turnNumber: number;
+  topicIndex: number;
 }
 
-export interface QuestionResult {
-  question: string;
+export interface TopicResult {
+  topic: string;
   exchanges: Exchange[];
   verdict: JudgeVerdict | null;
 }
 
 export interface DebateConfig {
-  questions: string[];
-  roundsPerQuestion: number;
+  topics: string[];
+  turnsPerTopic: number;
   humanCoachEnabled: boolean;
   issueFocus?: string[];
 }
@@ -92,12 +92,12 @@ export interface DebateState {
   secondSpeaker: AgentConfig;
   judge: AgentConfig;
 
-  currentQuestionIndex: number;
-  currentRound: number;
+  currentTopicIndex: number;
+  currentTurn: number;
   currentPhase: DebatePhase;
   currentSpeakerId: string | null;
 
-  questionResults: QuestionResult[];
+  topicResults: TopicResult[];
   finalTally: FinalTally | null;
   humanFeedback?: string;
 
@@ -117,8 +117,8 @@ export interface WizardState {
   speaker2Name: string;  // Display name (short)
   speaker1Persona: string;  // Full persona description
   speaker2Persona: string;  // Full persona description
-  roundsPerQuestion: number;
-  questionCount: number;
+  turnsPerTopic: number;
+  topicCount: number;
   debateCount: number;
   issueFocus: string[];
   narrate: boolean;
@@ -130,8 +130,8 @@ export const DEFAULT_WIZARD_STATE: WizardState = {
   speaker2Name: "",
   speaker1Persona: "",
   speaker2Persona: "",
-  roundsPerQuestion: 5,
-  questionCount: 5,
+  turnsPerTopic: 5,
+  topicCount: 5,
   debateCount: 1,
   issueFocus: [],
   narrate: false, // Default to narrator off

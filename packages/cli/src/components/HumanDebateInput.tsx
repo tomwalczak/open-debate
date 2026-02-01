@@ -6,9 +6,9 @@ import { theme } from "../theme.js";
 import { Spinner } from "./Spinner.js";
 
 interface HumanDebateInputProps {
-  roundNumber: number;
-  totalRounds: number;
-  question: string;
+  turnNumber: number;
+  totalTurns: number;
+  topic: string;
   speakerName: string;
   speakerId: string;
   speakerPersona: string;
@@ -18,9 +18,9 @@ interface HumanDebateInputProps {
 }
 
 export function HumanDebateInput({
-  roundNumber,
-  totalRounds,
-  question,
+  turnNumber,
+  totalTurns,
+  topic,
   speakerName,
   speakerId,
   speakerPersona,
@@ -116,11 +116,11 @@ export function HumanDebateInput({
   return (
     <Box flexDirection="column" gap={1} paddingX={1}>
       <Box borderStyle="single" borderColor="cyan" paddingX={1}>
-        <Text bold color="cyan">Your Turn - Round {roundNumber}/{totalRounds}</Text>
+        <Text bold color="cyan">Your Turn - Turn {turnNumber}/{totalTurns}</Text>
       </Box>
 
       <Text wrap="wrap" dimColor>
-        <Text bold>Question:</Text> {question}
+        <Text bold>Topic:</Text> {topic}
       </Text>
 
       {/* Full transcript */}
@@ -133,7 +133,7 @@ export function HumanDebateInput({
             return (
               <Box key={ex.id} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
                 <Text bold color={color}>
-                  {ex.speakerName} (Round {ex.roundNumber}):
+                  {ex.speakerName} (Turn {ex.turnNumber}):
                 </Text>
                 <Box marginLeft={2}>
                   <Text wrap="wrap">{ex.message}</Text>
