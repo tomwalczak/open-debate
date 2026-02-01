@@ -67,7 +67,7 @@ npm start -- \
   --speaker1 "Karl Popper" \
   --speaker2 "Thomas Kuhn" \
   --issues "falsifiability vs paradigms,how science actually progresses,role of anomalies,scientific revolutions,demarcation problem,incommensurability,normal science,role of scientific communities,rationality vs sociology,cumulative progress vs revolution,theory choice,observation is theory-laden,Lakatos and research programmes,historical case studies,prescriptive vs descriptive" \
-  --questions 15 --rounds 3 --debates 3
+  --topics 15 --turns 3 --debates 3
 ```
 
 ### Energy & Environment
@@ -78,7 +78,7 @@ npm start -- \
   --speaker1 "Nuclear engineer who believes nuclear power is the safest, cleanest path to energy abundance and that anti-nuclear sentiment is driven by irrational fear" \
   --speaker2 "Environmental activist who believes nuclear's catastrophic tail risks, waste storage problems, and massive costs make it a dangerous distraction from proven renewables" \
   --issues "Chernobyl and Fukushima lessons,waste storage,cost overruns,baseload power,small modular reactors" \
-  --questions 5 --rounds 3 --debates 3
+  --topics 5 --turns 3 --debates 3
 ```
 
 ### Psychology & Culture
@@ -89,7 +89,7 @@ npm start -- \
   --speaker1 "Therapist and mental health advocate who believes widespread access to therapy reduces suffering, builds emotional intelligence, and helps people live authentic lives" \
   --speaker2 "Cultural critic who believes therapy culture promotes fragility, pathologizes normal human struggle, and replaces community and meaning with endless self-focus" \
   --issues "trauma discourse,resilience vs vulnerability,medicalization of sadness,therapeutic language in politics,self-help industry" \
-  --questions 5 --rounds 3 --debates 3
+  --topics 5 --turns 3 --debates 3
 ```
 
 ### Philosophy & Social Theory
@@ -100,7 +100,7 @@ npm start -- \
   --speaker1 "Girardian who explains social conflict through mimetic desire and scapegoating, and sees Christianity as the unveiling of the scapegoat mechanism" \
   --speaker2 "Marxist who explains social conflict through material conditions and class struggle, and sees religion as ideology serving ruling class interests" \
   --issues "origin of violence,religion's social function,capitalism,revolutionary change,human nature" \
-  --questions 5 --rounds 3 --debates 3
+  --topics 5 --turns 3 --debates 3
 ```
 
 **Popper vs Bay Area Rationalists**
@@ -109,7 +109,7 @@ npm start -- \
   --speaker1 "Karl Popper-style critical rationalist who emphasizes falsificationism, the open society, and skepticism of prediction" \
   --speaker2 "LessWrong-style Bayesian rationalist who emphasizes probability theory, expected utility maximization, and AI alignment" \
   --issues "scientific method,epistemology,prediction vs falsification,AI existential risk,utopian social engineering" \
-  --questions 5 --rounds 4 --debates 3
+  --topics 5 --turns 4 --debates 3
 ```
 
 ## How It Works
@@ -145,15 +145,15 @@ A **match** contains multiple debates. After each debate, both agents reflect on
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌──────────────────┐                                                       │
-│  │ QUESTION         │  Generates debate questions based on                  │
+│  │ TOPIC            │  Generates debate topics based on                     │
 │  │ GENERATOR        │  the speakers' personas and any --issues              │
 │  └────────┬─────────┘                                                       │
 │           │                                                                 │
 │           ▼                                                                 │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                      FOR EACH QUESTION                              │   │
+│  │                        FOR EACH TOPIC                              │   │
 │  │  ┌─────────────────────────────────────────────────────────────┐   │   │
-│  │  │                    FOR EACH ROUND                           │   │   │
+│  │  │                    FOR EACH TURN                            │   │   │
 │  │  │                                                             │   │   │
 │  │  │   ┌───────────┐              ┌───────────┐                  │   │   │
 │  │  │   │ SPEAKER 1 │ ──responds── │ SPEAKER 2 │                  │   │   │
@@ -165,11 +165,11 @@ A **match** contains multiple debates. After each debate, both agents reflect on
 │  │                          ▼                                          │   │
 │  │                   ┌─────────────┐                                   │   │
 │  │                   │    JUDGE    │  Evaluates arguments,             │   │
-│  │                   │             │  picks winner for this question   │   │
+│  │                   │             │  picks winner for this topic      │   │
 │  │                   └─────────────┘                                   │   │
 │  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  Final tally: Speaker with most question wins takes the debate              │
+│  Final tally: Speaker with most topic wins takes the debate                 │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -211,13 +211,13 @@ Both agents' prompts accumulate lessons: "Don't concede X," "Reframe Y as Z," "L
 | -------------------- | ------------------------------------ | ---------------------- |
 | `--speaker1, -s1`    | First debater persona                | —                      |
 | `--speaker2, -s2`    | Second debater persona               | —                      |
-| `--questions, -q`    | Questions per debate                 | 5                      |
-| `--rounds, -r`       | Rounds per question                  | 3                      |
+| `--topics, -t`       | Topics per debate                    | 5                      |
+| `--turns`            | Turns per topic                      | 3                      |
 | `--debates, -d`      | Number of consecutive debates        | 1                      |
 | `--autopilot, -a`    | Run without pausing                  | false                  |
 | `--model, -m`        | Model ID for debaters                | `qwen/qwen3-next-80b-a3b-instruct` |
 | `--issues, -i`       | Comma-separated focus topics         | —                      |
-| `--human-coach, -hc` | Enable human coaching between rounds | false                  |
+| `--human-coach, -hc` | Enable human coaching between turns  | false                  |
 | `--fork, -f`         | Fork from existing agent prompts     | —                      |
 
 ### Model Options
@@ -240,8 +240,8 @@ Both agents' prompts accumulate lessons: "Don't concede X," "Reframe Y as Z," "L
 
 | Key | Action |
 |-----|--------|
-| `1-9` | Jump to question tab |
-| `Tab` | Cycle through questions |
+| `1-9` | Jump to topic tab |
+| `Tab` | Cycle through topics |
 | `↑/↓` | Scroll debate transcript |
 | `←/→` | Navigate tabs |
 | `Ctrl+C` | Exit |
@@ -254,7 +254,7 @@ Each match creates a folder in `matches/` containing:
 matches/2026-01-27-debate-name/
 ├── config.json           # Full match configuration
 ├── debate-1/
-│   ├── questions.json    # Generated debate questions
+│   ├── topics.json       # Generated debate topics
 │   ├── transcript.json   # Full exchange transcript
 │   └── verdicts.json     # Judge decisions + reasoning
 ├── debate-2/
