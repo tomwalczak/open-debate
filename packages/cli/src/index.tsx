@@ -189,6 +189,13 @@ function parseArgs(rawArgs: string[]): CliArgs {
         result.judgeSeed = nextArg;
         i++;
         break;
+      default:
+        if (arg.startsWith("--")) {
+          console.error(`\x1b[31mError: Unknown option "${arg}"\x1b[0m`);
+          console.error("Run with --help to see available options");
+          process.exit(1);
+        }
+        break;
     }
   }
 
