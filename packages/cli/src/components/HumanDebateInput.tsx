@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
-import type { Exchange } from "@open-debate/core";
+import type { Exchange, CoachMessage } from "@open-debate/core";
 import { theme } from "../theme.js";
+import { Spinner } from "./Spinner.js";
 
 interface HumanDebateInputProps {
   roundNumber: number;
@@ -10,8 +11,10 @@ interface HumanDebateInputProps {
   question: string;
   speakerName: string;
   speakerId: string;
+  speakerPersona: string;
   exchanges: Exchange[];
   onSubmit: (response: string) => void;
+  onHintRequest: (conversationHistory: CoachMessage[], userRequest?: string) => Promise<string>;
 }
 
 export function HumanDebateInput({
@@ -20,13 +23,17 @@ export function HumanDebateInput({
   question,
   speakerName,
   speakerId,
+  speakerPersona,
   exchanges,
   onSubmit,
+  onHintRequest,
 }: HumanDebateInputProps) {
   const [response, setResponse] = useState("");
   const [isMultiline, setIsMultiline] = useState(false);
   const [lines, setLines] = useState<string[]>([""]);
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const [coachConversation, setCoachConversation] = useState<CoachMessage[]>([]);
+  const [isLoadingHint, setIsLoadingHint] = useState(false);
 
   // Handle keyboard input for multiline mode
   useInput((input, key) => {
@@ -64,11 +71,46 @@ export function HumanDebateInput({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const finalResponse = isMultiline ? lines.join("\n") : response;
-    if (finalResponse.trim()) {
-      onSubmit(finalResponse.trim());
+    const trimmed = finalResponse.trim();
+
+    if (!trimmed) return;
+
+    // Check for /hint command
+    if (trimmed.toLowerCase().startsWith("/hint")) {
+      const userRequest = trimmed.slice(5).trim() || undefined;
+      setIsLoadingHint(true);
+      setResponse("");
+
+      // Add user message to conversation
+      const userMessage: CoachMessage = {
+        role: "user",
+        content: userRequest || "Suggest 3 strong arguments or angles I could use right now.",
+      };
+
+      try {
+        const hint = await onHintRequest(coachConversation, userRequest);
+        // Add both user and coach messages to history
+        setCoachConversation(prev => [
+          ...prev,
+          userMessage,
+          { role: "coach", content: hint },
+        ]);
+      } catch (error) {
+        setCoachConversation(prev => [
+          ...prev,
+          userMessage,
+          { role: "coach", content: `Error: ${error}` },
+        ]);
+      }
+      setIsLoadingHint(false);
+      return;
     }
+
+    // Normal submission - clear coach conversation for next turn
+    setCoachConversation([]);
+    onSubmit(trimmed);
   };
 
   return (
@@ -102,12 +144,36 @@ export function HumanDebateInput({
         </Box>
       )}
 
+      {/* Coach conversation */}
+      {coachConversation.length > 0 && (
+        <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="magenta" paddingX={1} paddingY={1}>
+          <Text bold color="magenta">Coach Session:</Text>
+          {coachConversation.map((msg, i) => (
+            <Box key={i} flexDirection="column" marginTop={1}>
+              <Text bold color={msg.role === "user" ? "cyan" : "magenta"}>
+                {msg.role === "user" ? "You:" : "Coach:"}
+              </Text>
+              <Box marginLeft={2}>
+                <Text wrap="wrap">{msg.content}</Text>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Loading hint */}
+      {isLoadingHint && (
+        <Box marginTop={1}>
+          <Spinner label="Getting coaching advice..." />
+        </Box>
+      )}
+
       <Box marginTop={1} flexDirection="column">
         <Text>
           Respond as <Text bold color={theme.speaker1}>{speakerName}</Text>:
         </Text>
         <Text dimColor italic>
-          (AI partner will expand notes or use polished responses as-is)
+          Type <Text color="magenta">/hint</Text> for coaching, or <Text color="magenta">/hint [request]</Text> for specific help
         </Text>
       </Box>
 

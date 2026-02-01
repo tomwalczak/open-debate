@@ -15,3 +15,4 @@ export { runMatch, resumeMatch, type MatchCallbacks, type HumanInputContext, typ
 export { narrateExchange } from "./narrator.js";
 export { parseMatchPrompt, type ParsedMatchConfig } from "./prompt-parser.js";
 export { generateDisplayNames, generateDisplayName } from "./name-generator.js";
+export { getDebateCoaching, type CoachContext, type CoachRequest, type CoachMessage } from "./debate-coach.js";

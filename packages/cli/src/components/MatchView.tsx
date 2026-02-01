@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext, HumanContinueContext } from "@open-debate/core";
+import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionTabBar } from "./QuestionTabBar.js";
@@ -19,6 +19,7 @@ interface MatchViewProps {
   onHumanResponse?: (response: string) => void;
   humanContinueContext?: HumanContinueContext | null;
   onHumanContinue?: () => void;
+  onHintRequest?: (context: CoachContext, conversationHistory: CoachMessage[], userRequest?: string) => Promise<string>;
 }
 
 export function MatchView({
@@ -32,6 +33,7 @@ export function MatchView({
   onHumanResponse,
   humanContinueContext,
   onHumanContinue,
+  onHintRequest,
 }: MatchViewProps) {
   // Selected question index for tabbed view
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
@@ -134,15 +136,24 @@ export function MatchView({
       )}
 
       {/* Human Input UI */}
-      {humanInputContext && onHumanResponse && (
+      {humanInputContext && onHumanResponse && onHintRequest && (
         <HumanDebateInput
           roundNumber={humanInputContext.roundNumber}
           totalRounds={humanInputContext.totalRounds}
           question={humanInputContext.question}
           speakerName={humanInputContext.speakerName}
           speakerId={humanInputContext.currentSpeakerId}
+          speakerPersona={humanInputContext.speakerPersona}
           exchanges={humanInputContext.exchanges}
           onSubmit={onHumanResponse}
+          onHintRequest={(conversationHistory, userRequest) => onHintRequest({
+            question: humanInputContext.question,
+            speakerName: humanInputContext.speakerName,
+            speakerPersona: humanInputContext.speakerPersona,
+            exchanges: humanInputContext.exchanges,
+            roundNumber: humanInputContext.roundNumber,
+            totalRounds: humanInputContext.totalRounds,
+          }, conversationHistory, userRequest)}
         />
       )}
 

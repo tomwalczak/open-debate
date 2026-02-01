@@ -15,6 +15,7 @@ import {
   resumeMatch,
   generateDisplayNames,
   parseMatchPrompt,
+  getDebateCoaching,
   DEFAULT_MODEL_ID,
   DEFAULT_WIZARD_STATE,
   type MatchCallbacks,
@@ -26,6 +27,8 @@ import {
   type Exchange,
   type HumanInputContext,
   type HumanContinueContext,
+  type CoachContext,
+  type CoachMessage,
   type MatchSummary,
 } from "@open-debate/core";
 
@@ -149,6 +152,15 @@ export function App({ cliArgs }: AppProps) {
       setHumanContinueResolver(null);
       setHumanContinueContext(null);
     }
+  };
+
+  const handleHintRequest = async (context: CoachContext, conversationHistory: CoachMessage[], userRequest?: string): Promise<string> => {
+    return getDebateCoaching({
+      context,
+      conversationHistory,
+      userRequest,
+      modelId,
+    });
   };
 
   // Handle CLI args for automation mode
@@ -427,6 +439,7 @@ export function App({ cliArgs }: AppProps) {
       onHumanResponse={handleHumanResponse}
       humanContinueContext={humanContinueContext}
       onHumanContinue={handleHumanContinue}
+      onHintRequest={handleHintRequest}
     />
   );
 }

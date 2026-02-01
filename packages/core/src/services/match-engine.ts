@@ -41,6 +41,7 @@ export interface HumanInputContext {
   roundNumber: number;
   totalRounds: number;
   speakerName: string;
+  speakerPersona: string;
   opponentLastMessage?: string;
 }
 
@@ -156,7 +157,8 @@ async function executeQuestion(
   callbacks: MatchCallbacks,
   narrate: boolean,
   modelId: string,
-  humanSpeakerId?: string
+  humanSpeakerId?: string,
+  humanSpeakerPersona?: string
 ): Promise<QuestionResult> {
   const exchanges: Exchange[] = [];
 
@@ -196,6 +198,7 @@ async function executeQuestion(
         roundNumber: round,
         totalRounds: roundsPerQuestion,
         speakerName: firstSpeaker.name,
+        speakerPersona: humanSpeakerPersona || firstSpeaker.name,
         opponentLastMessage: lastOpponentMessage,
       });
       // Process/expand human input
@@ -315,6 +318,7 @@ async function executeQuestion(
         roundNumber: round,
         totalRounds: roundsPerQuestion,
         speakerName: secondSpeaker.name,
+        speakerPersona: humanSpeakerPersona || secondSpeaker.name,
         opponentLastMessage: lastOpponentMessage,
       });
       // Process/expand human input
@@ -464,6 +468,12 @@ async function runSingleDebate(
       ? secondSpeaker.id
       : undefined;
 
+  const humanSpeakerPersona = config.humanSide === "speaker1"
+    ? config.speaker1Persona
+    : config.humanSide === "speaker2"
+      ? config.speaker2Persona
+      : undefined;
+
   // If human is playing, run questions sequentially (can't do parallel human input)
   const maxConcurrent = humanSpeakerId ? 1 : MAX_CONCURRENT_QUESTIONS;
   const pool = new QuestionPool(maxConcurrent);
@@ -485,7 +495,8 @@ async function runSingleDebate(
         callbacks,
         config.narrate ?? false,
         config.modelId,
-        humanSpeakerId
+        humanSpeakerId,
+        humanSpeakerPersona
       )
     );
   });
