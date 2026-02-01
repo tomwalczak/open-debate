@@ -124,9 +124,19 @@ function parseArgs(rawArgs: string[]): CliArgs {
         result.turns = parseInt(nextArg, 10);
         i++;
         break;
+      case "--rounds":
+        console.error("\x1b[31mError: --rounds has been renamed to --turns\x1b[0m");
+        console.error("Example: --turns 3");
+        process.exit(1);
+        break;
       case "--topics":
         result.topics = parseInt(nextArg, 10);
         i++;
+        break;
+      case "--questions":
+        console.error("\x1b[31mError: --questions has been renamed to --topics\x1b[0m");
+        console.error("Example: --topics 5");
+        process.exit(1);
         break;
       case "--issues":
         result.issues = nextArg;
