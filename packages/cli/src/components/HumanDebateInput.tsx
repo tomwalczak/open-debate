@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
+import type { Exchange } from "@open-debate/core";
 import { theme } from "../theme.js";
 
 interface HumanDebateInputProps {
@@ -8,7 +9,8 @@ interface HumanDebateInputProps {
   totalRounds: number;
   question: string;
   speakerName: string;
-  opponentLastMessage: string | null;
+  speakerId: string;
+  exchanges: Exchange[];
   onSubmit: (response: string) => void;
 }
 
@@ -17,7 +19,8 @@ export function HumanDebateInput({
   totalRounds,
   question,
   speakerName,
-  opponentLastMessage,
+  speakerId,
+  exchanges,
   onSubmit,
 }: HumanDebateInputProps) {
   const [response, setResponse] = useState("");
@@ -68,13 +71,6 @@ export function HumanDebateInput({
     }
   };
 
-  // Truncate opponent message for display
-  const truncatedOpponentMessage = opponentLastMessage
-    ? opponentLastMessage.length > 300
-      ? opponentLastMessage.slice(0, 300) + "..."
-      : opponentLastMessage
-    : null;
-
   return (
     <Box flexDirection="column" gap={1} paddingX={1}>
       <Box borderStyle="single" borderColor="cyan" paddingX={1}>
@@ -85,10 +81,24 @@ export function HumanDebateInput({
         <Text bold>Question:</Text> {question}
       </Text>
 
-      {truncatedOpponentMessage && (
-        <Box flexDirection="column" marginTop={1}>
-          <Text bold color="yellow">Opponent said:</Text>
-          <Text wrap="wrap" dimColor>{truncatedOpponentMessage}</Text>
+      {/* Full transcript */}
+      {exchanges.length > 0 && (
+        <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor="gray" paddingX={1} paddingY={1}>
+          <Text bold dimColor>Transcript:</Text>
+          {exchanges.map((ex, i) => {
+            const isHuman = ex.speakerId === speakerId;
+            const color = isHuman ? theme.speaker1 : theme.speaker2;
+            return (
+              <Box key={ex.id} flexDirection="column" marginTop={i > 0 ? 1 : 0}>
+                <Text bold color={color}>
+                  {ex.speakerName} (Round {ex.roundNumber}):
+                </Text>
+                <Box marginLeft={2}>
+                  <Text wrap="wrap">{ex.message}</Text>
+                </Box>
+              </Box>
+            );
+          })}
         </Box>
       )}
 

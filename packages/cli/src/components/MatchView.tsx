@@ -140,7 +140,8 @@ export function MatchView({
           totalRounds={humanInputContext.totalRounds}
           question={humanInputContext.question}
           speakerName={humanInputContext.speakerName}
-          opponentLastMessage={humanInputContext.opponentLastMessage ?? null}
+          speakerId={humanInputContext.currentSpeakerId}
+          exchanges={humanInputContext.exchanges}
           onSubmit={onHumanResponse}
         />
       )}
