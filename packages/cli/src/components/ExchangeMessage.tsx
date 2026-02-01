@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { Box, Text } from "ink";
-import type { Exchange } from "../types/debate.js";
+import type { Exchange } from "@open-debate/core";
 import { theme } from "../theme.js";
 
 interface ExchangeMessageProps {

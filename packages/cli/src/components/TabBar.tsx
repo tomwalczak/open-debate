@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import type { DebateState } from "../types/debate.js";
+import type { DebateState } from "@open-debate/core";
 
 const isTTY = process.stdin.isTTY;
 

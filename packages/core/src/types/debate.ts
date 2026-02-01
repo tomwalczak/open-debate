@@ -16,8 +16,11 @@ export interface MatchConfig {
   modelId: string;
   seed1?: string;  // User instructions for speaker 1's initial prompt
   seed2?: string;  // User instructions for speaker 2's initial prompt
+  directPrompt1?: string;  // Direct system prompt for speaker 1 (bypasses generation)
+  directPrompt2?: string;  // Direct system prompt for speaker 2 (bypasses generation)
   narrate?: boolean;  // Enable real-time narrator commentary
   judgeSeed?: string;  // Instructions for judge persona
+  humanSide?: "speaker1" | "speaker2";  // Which side the human plays
 }
 
 export interface MatchState {

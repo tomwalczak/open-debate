@@ -1,0 +1,28 @@
+{
+  "name": "@open-debate/core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.23",
+    "@ai-sdk/google": "^3.0.13",
+    "@ai-sdk/openai": "^3.0.19",
+    "@openrouter/ai-sdk-provider": "^2.0.2",
+    "ai": "^6.0.50",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

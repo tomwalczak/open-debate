@@ -59,6 +59,17 @@ cd ~/Desktop/open-debate && npm start -- \
 
 ## Example Debates
 
+### Philosophy of Science (Deep Dive)
+
+**Popper vs Kuhn: The Nature of Scientific Revolutions**
+```bash
+npm start -- \
+  --speaker1 "Karl Popper" \
+  --speaker2 "Thomas Kuhn" \
+  --issues "falsifiability vs paradigms,how science actually progresses,role of anomalies,scientific revolutions,demarcation problem,incommensurability,normal science,role of scientific communities,rationality vs sociology,cumulative progress vs revolution,theory choice,observation is theory-laden,Lakatos and research programmes,historical case studies,prescriptive vs descriptive" \
+  --questions 15 --rounds 3 --debates 3
+```
+
 ### Energy & Environment
 
 **Nuclear Power: Safety vs Risk**

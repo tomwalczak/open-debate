@@ -32,6 +32,17 @@ function getReadingDelay(text: string): number {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+export interface HumanInputContext {
+  questionIndex: number;
+  question: string;
+  exchanges: Exchange[];
+  currentSpeakerId: string;
+  roundNumber: number;
+  totalRounds: number;
+  speakerName: string;
+  opponentLastMessage?: string;
+}
+
 export interface MatchCallbacks {
   onMatchStart: (match: MatchState) => void;
   onDebateStart: (debateNumber: number) => void;
@@ -42,6 +53,7 @@ export interface MatchCallbacks {
   onQuestionStreamChunk: (questionIndex: number, chunk: string) => void;
   onLearning: () => void;
   onError: (error: Error) => void;
+  onHumanInputRequired?: (context: HumanInputContext) => Promise<string>;
 }
 
 class QuestionPool {

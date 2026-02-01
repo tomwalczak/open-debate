@@ -10,14 +10,23 @@ import {
   MatchView,
   Spinner,
 } from "./components/index.js";
-import { runMatch, resumeMatch, type MatchCallbacks } from "./services/match-engine.js";
-import { generateDisplayNames } from "./services/name-generator.js";
-import { parseMatchPrompt, type ParsedMatchConfig } from "./services/prompt-parser.js";
-import type { MatchConfig, MatchState, QuestionExecutionState, WizardState, Exchange } from "./types/debate.js";
-import type { HumanInputContext } from "./services/match-engine.js";
-import { DEFAULT_WIZARD_STATE } from "./types/debate.js";
-import { DEFAULT_MODEL_ID } from "./types/agent.js";
-import type { MatchSummary } from "./types/judge.js";
+import {
+  runMatch,
+  resumeMatch,
+  generateDisplayNames,
+  parseMatchPrompt,
+  DEFAULT_MODEL_ID,
+  DEFAULT_WIZARD_STATE,
+  type MatchCallbacks,
+  type ParsedMatchConfig,
+  type MatchConfig,
+  type MatchState,
+  type QuestionExecutionState,
+  type WizardState,
+  type Exchange,
+  type HumanInputContext,
+  type MatchSummary,
+} from "@open-debate/core";
 
 export interface AppProps {
   cliArgs?: {

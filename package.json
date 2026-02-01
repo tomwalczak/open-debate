@@ -1,43 +1,13 @@
 {
   "name": "open-debate",
-  "version": "1.0.0",
-  "description": "Terminal-based AI debate app using React + Ink",
-  "type": "module",
-  "main": "dist/index.js",
-  "bin": {
-    "debate": "./bin/debate.js"
-  },
+  "private": true,
+  "workspaces": ["packages/*"],
   "scripts": {
-    "start": "tsx src/index.tsx",
-    "build": "tsc",
-    "dev": "tsx watch src/index.tsx"
-  },
-  "keywords": [
-    "debate",
-    "ai",
-    "cli",
-    "ink",
-    "react"
-  ],
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.23",
-    "@ai-sdk/google": "^3.0.13",
-    "@ai-sdk/openai": "^3.0.19",
-    "@openrouter/ai-sdk-provider": "^2.0.2",
-    "ai": "^6.0.50",
-    "dotenv": "^17.2.3",
-    "ink": "^6.6.0",
-    "ink-scroll-view": "^0.3.5",
-    "ink-spinner": "^5.0.0",
-    "ink-text-input": "^6.0.0",
-    "react": "^19.2.4",
-    "zod": "^3.22.0"
+    "build": "bun run --cwd packages/core build && bun run --cwd packages/cli build",
+    "start": "tsx packages/cli/src/index.tsx",
+    "dev": "tsx watch packages/cli/src/index.tsx"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^19.2.10",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }

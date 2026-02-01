@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { Box, Text, useInput, useStdout } from "ink";
 import { ScrollView, type ScrollViewRef } from "ink-scroll-view";
-import type { QuestionExecutionState } from "../types/debate.js";
+import type { QuestionExecutionState } from "@open-debate/core";
 import { ExchangeMessage } from "./ExchangeMessage.js";
 import { JudgeVerdict } from "./JudgeVerdict.js";
 import { Spinner } from "./Spinner.js";

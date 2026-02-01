@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Box, Text } from "ink";
 import TextInput from "ink-text-input";
 import { theme } from "../../theme.js";
-import { parseMatchPrompt, type ParsedMatchConfig } from "../../services/prompt-parser.js";
+import { parseMatchPrompt, type ParsedMatchConfig } from "@open-debate/core";
 import { Spinner } from "../Spinner.js";
 
 interface SpeakerInputProps {

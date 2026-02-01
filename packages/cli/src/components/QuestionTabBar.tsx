@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text, useInput } from "ink";
-import type { QuestionExecutionState } from "../types/debate.js";
+import type { QuestionExecutionState } from "@open-debate/core";
 import { theme } from "../theme.js";
 
 const isTTY = process.stdin.isTTY;

@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { FinalTally as FinalTallyType } from "../types/judge.js";
+import type { FinalTally as FinalTallyType } from "@open-debate/core";
 
 interface FinalTallyProps {
   tally: FinalTallyType;

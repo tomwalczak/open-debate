@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { JudgeVerdict as JudgeVerdictType } from "../types/judge.js";
+import type { JudgeVerdict as JudgeVerdictType } from "@open-debate/core";
 
 interface JudgeVerdictProps {
   verdict: JudgeVerdictType;

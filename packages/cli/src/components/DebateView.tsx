@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
-import type { DebateState } from "../types/debate.js";
+import type { DebateState } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionProgress } from "./QuestionProgress.js";

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
-import type { MatchState, QuestionExecutionState } from "../types/debate.js";
-import type { MatchSummary } from "../types/judge.js";
-import type { HumanInputContext } from "../services/match-engine.js";
+import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionTabBar } from "./QuestionTabBar.js";
@@ -131,7 +129,7 @@ export function MatchView({
           totalRounds={humanInputContext.totalRounds}
           question={humanInputContext.question}
           speakerName={humanInputContext.speakerName}
-          opponentLastMessage={humanInputContext.opponentLastMessage}
+          opponentLastMessage={humanInputContext.opponentLastMessage ?? null}
           onSubmit={onHumanResponse}
         />
       )}

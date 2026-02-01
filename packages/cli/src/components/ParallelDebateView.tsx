@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text } from "ink";
-import type { DebateState, QuestionExecutionState } from "../types/debate.js";
+import type { DebateState, QuestionExecutionState } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { FinalTally } from "./FinalTally.js";
