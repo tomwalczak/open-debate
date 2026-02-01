@@ -25,6 +25,7 @@ import {
   type WizardState,
   type Exchange,
   type HumanInputContext,
+  type HumanContinueContext,
   type MatchSummary,
 } from "@open-debate/core";
 
@@ -68,6 +69,8 @@ export function App({ cliArgs }: AppProps) {
   const [modelId] = useState(cliArgs?.model || DEFAULT_MODEL_ID);
   const [humanInputResolver, setHumanInputResolver] = useState<((value: string) => void) | null>(null);
   const [humanInputContext, setHumanInputContext] = useState<HumanInputContext | null>(null);
+  const [humanContinueResolver, setHumanContinueResolver] = useState<(() => void) | null>(null);
+  const [humanContinueContext, setHumanContinueContext] = useState<HumanContinueContext | null>(null);
 
   const callbacks: MatchCallbacks = {
     onMatchStart: (m: MatchState) => {
@@ -124,6 +127,12 @@ export function App({ cliArgs }: AppProps) {
         setHumanInputResolver(() => resolve);
       });
     },
+    onWaitForHumanContinue: async (context) => {
+      return new Promise((resolve) => {
+        setHumanContinueContext(context);
+        setHumanContinueResolver(() => resolve);
+      });
+    },
   };
 
   const handleHumanResponse = (response: string) => {
@@ -131,6 +140,14 @@ export function App({ cliArgs }: AppProps) {
       humanInputResolver(response);
       setHumanInputResolver(null);
       setHumanInputContext(null);
+    }
+  };
+
+  const handleHumanContinue = () => {
+    if (humanContinueResolver) {
+      humanContinueResolver();
+      setHumanContinueResolver(null);
+      setHumanContinueContext(null);
     }
   };
 
@@ -408,6 +425,8 @@ export function App({ cliArgs }: AppProps) {
       matchSummary={matchSummary}
       humanInputContext={humanInputContext}
       onHumanResponse={handleHumanResponse}
+      humanContinueContext={humanContinueContext}
+      onHumanContinue={handleHumanContinue}
     />
   );
 }

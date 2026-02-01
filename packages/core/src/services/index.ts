@@ -11,7 +11,7 @@ export {
   saveAgentPrompt,
   generatePromptFromLearnings,
 } from "./match-storage.js";
-export { runMatch, resumeMatch, type MatchCallbacks, type HumanInputContext } from "./match-engine.js";
+export { runMatch, resumeMatch, type MatchCallbacks, type HumanInputContext, type HumanContinueContext } from "./match-engine.js";
 export { narrateExchange } from "./narrator.js";
 export { parseMatchPrompt, type ParsedMatchConfig } from "./prompt-parser.js";
 export { generateDisplayNames, generateDisplayName } from "./name-generator.js";

@@ -8,6 +8,7 @@ import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchF
 import { generateQuestions } from "./question-generator.js";
 import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
+import { processHumanInput } from "./response-expander.js";
 import type { AgentConfig } from "../types/agent.js";
 import type {
   MatchConfig,
@@ -54,6 +55,17 @@ export interface MatchCallbacks {
   onLearning: () => void;
   onError: (error: Error) => void;
   onHumanInputRequired?: (context: HumanInputContext) => Promise<string>;
+  onWaitForHumanContinue?: (context: HumanContinueContext) => Promise<void>;
+}
+
+export interface HumanContinueContext {
+  questionIndex: number;
+  question: string;
+  roundNumber: number;
+  totalRounds: number;
+  opponentName: string;
+  opponentMessage: string;
+  isLastRound: boolean;
 }
 
 class QuestionPool {
@@ -143,7 +155,8 @@ async function executeQuestion(
   judge: AgentConfig,
   callbacks: MatchCallbacks,
   narrate: boolean,
-  modelId: string
+  modelId: string,
+  humanSpeakerId?: string
 ): Promise<QuestionResult> {
   const exchanges: Exchange[] = [];
 
@@ -171,23 +184,49 @@ async function executeQuestion(
     };
     callbacks.onQuestionStateChange(questionState);
 
-    const speaker1Message = await generateSpeakerResponse(
-      firstSpeaker,
-      question,
-      exchanges,
-      round,
-      (chunk) => {
-        // Only stream raw text when narrator is off
-        if (!narrate) {
-          questionState = {
-            ...questionState,
-            streamingText: questionState.streamingText + chunk,
-          };
-          callbacks.onQuestionStreamChunk(questionIndex, chunk);
-          callbacks.onQuestionStateChange(questionState);
+    let speaker1Message: string;
+    if (humanSpeakerId && firstSpeaker.id === humanSpeakerId && callbacks.onHumanInputRequired) {
+      // Human's turn - request input
+      const lastOpponentMessage = exchanges.length > 0 ? exchanges[exchanges.length - 1].message : undefined;
+      const humanInput = await callbacks.onHumanInputRequired({
+        questionIndex,
+        question,
+        exchanges: [...exchanges],
+        currentSpeakerId: firstSpeaker.id,
+        roundNumber: round,
+        totalRounds: roundsPerQuestion,
+        speakerName: firstSpeaker.name,
+        opponentLastMessage: lastOpponentMessage,
+      });
+      // Process/expand human input
+      speaker1Message = await processHumanInput(
+        humanInput,
+        firstSpeaker.name,
+        question,
+        exchanges,
+        round,
+        modelId
+      );
+    } else {
+      // AI's turn
+      speaker1Message = await generateSpeakerResponse(
+        firstSpeaker,
+        question,
+        exchanges,
+        round,
+        (chunk) => {
+          // Only stream raw text when narrator is off
+          if (!narrate) {
+            questionState = {
+              ...questionState,
+              streamingText: questionState.streamingText + chunk,
+            };
+            callbacks.onQuestionStreamChunk(questionIndex, chunk);
+            callbacks.onQuestionStateChange(questionState);
+          }
         }
-      }
-    );
+      );
+    }
 
     const exchange1: Exchange = {
       id: generateId(),
@@ -243,6 +282,19 @@ async function executeQuestion(
       callbacks.onQuestionStateChange(questionState);
     }
 
+    // If human is second speaker, wait for them to read opponent's response before their turn
+    if (humanSpeakerId && secondSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
+      await callbacks.onWaitForHumanContinue({
+        questionIndex,
+        question,
+        roundNumber: round,
+        totalRounds: roundsPerQuestion,
+        opponentName: firstSpeaker.name,
+        opponentMessage: speaker1Message,
+        isLastRound: false,
+      });
+    }
+
     // Second speaker - keep previous narratorSummary visible until new narrator starts
     questionState = {
       ...questionState,
@@ -251,23 +303,49 @@ async function executeQuestion(
     };
     callbacks.onQuestionStateChange(questionState);
 
-    const speaker2Message = await generateSpeakerResponse(
-      secondSpeaker,
-      question,
-      exchanges,
-      round,
-      (chunk) => {
-        // Only stream raw text when narrator is off
-        if (!narrate) {
-          questionState = {
-            ...questionState,
-            streamingText: questionState.streamingText + chunk,
-          };
-          callbacks.onQuestionStreamChunk(questionIndex, chunk);
-          callbacks.onQuestionStateChange(questionState);
+    let speaker2Message: string;
+    if (humanSpeakerId && secondSpeaker.id === humanSpeakerId && callbacks.onHumanInputRequired) {
+      // Human's turn - request input
+      const lastOpponentMessage = exchanges.length > 0 ? exchanges[exchanges.length - 1].message : undefined;
+      const humanInput = await callbacks.onHumanInputRequired({
+        questionIndex,
+        question,
+        exchanges: [...exchanges],
+        currentSpeakerId: secondSpeaker.id,
+        roundNumber: round,
+        totalRounds: roundsPerQuestion,
+        speakerName: secondSpeaker.name,
+        opponentLastMessage: lastOpponentMessage,
+      });
+      // Process/expand human input
+      speaker2Message = await processHumanInput(
+        humanInput,
+        secondSpeaker.name,
+        question,
+        exchanges,
+        round,
+        modelId
+      );
+    } else {
+      // AI's turn
+      speaker2Message = await generateSpeakerResponse(
+        secondSpeaker,
+        question,
+        exchanges,
+        round,
+        (chunk) => {
+          // Only stream raw text when narrator is off
+          if (!narrate) {
+            questionState = {
+              ...questionState,
+              streamingText: questionState.streamingText + chunk,
+            };
+            callbacks.onQuestionStreamChunk(questionIndex, chunk);
+            callbacks.onQuestionStateChange(questionState);
+          }
         }
-      }
-    );
+      );
+    }
 
     const exchange2: Exchange = {
       id: generateId(),
@@ -322,6 +400,20 @@ async function executeQuestion(
       };
       callbacks.onQuestionStateChange(questionState);
     }
+
+    // If human is first speaker, wait for them to read opponent's response before next round
+    if (humanSpeakerId && firstSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
+      const isLastRound = round === roundsPerQuestion;
+      await callbacks.onWaitForHumanContinue({
+        questionIndex,
+        question,
+        roundNumber: round,
+        totalRounds: roundsPerQuestion,
+        opponentName: secondSpeaker.name,
+        opponentMessage: speaker2Message,
+        isLastRound,
+      });
+    }
   }
 
   // Judge this question
@@ -364,9 +456,19 @@ async function runSingleDebate(
 ): Promise<{ questionResults: QuestionResult[]; speaker1Wins: number; speaker2Wins: number }> {
   const { firstSpeaker, secondSpeaker, config } = match;
   const judge = createJudgeAgent(config.modelId, judgePrompt);
-  const pool = new QuestionPool(MAX_CONCURRENT_QUESTIONS);
 
-  // Run all questions in parallel, alternating speaker order to balance second-speaker advantage
+  // Determine which speaker is human (if any)
+  const humanSpeakerId = config.humanSide === "speaker1"
+    ? firstSpeaker.id
+    : config.humanSide === "speaker2"
+      ? secondSpeaker.id
+      : undefined;
+
+  // If human is playing, run questions sequentially (can't do parallel human input)
+  const maxConcurrent = humanSpeakerId ? 1 : MAX_CONCURRENT_QUESTIONS;
+  const pool = new QuestionPool(maxConcurrent);
+
+  // Run questions, alternating speaker order to balance second-speaker advantage
   const questionPromises = questions.map((question, index) => {
     // Alternate who goes first: even index = speaker1 first, odd index = speaker2 first
     const goesFirst = index % 2 === 0 ? firstSpeaker : secondSpeaker;
@@ -382,7 +484,8 @@ async function runSingleDebate(
         judge,
         callbacks,
         config.narrate ?? false,
-        config.modelId
+        config.modelId,
+        humanSpeakerId
       )
     );
   });

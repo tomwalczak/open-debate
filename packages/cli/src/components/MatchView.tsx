@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Box, Text } from "ink";
-import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext } from "@open-debate/core";
+import { Box, Text, useInput } from "ink";
+import type { MatchState, QuestionExecutionState, MatchSummary, HumanInputContext, HumanContinueContext } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { QuestionTabBar } from "./QuestionTabBar.js";
@@ -17,6 +17,8 @@ interface MatchViewProps {
   matchSummary?: MatchSummary | null;
   humanInputContext?: HumanInputContext | null;
   onHumanResponse?: (response: string) => void;
+  humanContinueContext?: HumanContinueContext | null;
+  onHumanContinue?: () => void;
 }
 
 export function MatchView({
@@ -28,6 +30,8 @@ export function MatchView({
   matchSummary,
   humanInputContext,
   onHumanResponse,
+  humanContinueContext,
+  onHumanContinue,
 }: MatchViewProps) {
   // Selected question index for tabbed view
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
@@ -36,6 +40,13 @@ export function MatchView({
   const sortedQuestionStates = Array.from(questionStates.values()).sort(
     (a, b) => a.questionIndex - b.questionIndex
   );
+
+  // Handle Enter key for continue prompt
+  useInput((input, key) => {
+    if (humanContinueContext && onHumanContinue && key.return) {
+      onHumanContinue();
+    }
+  });
 
   // Auto-select first active question when selection becomes invalid or pending
   useEffect(() => {
@@ -134,8 +145,38 @@ export function MatchView({
         />
       )}
 
+      {/* Human Continue Prompt - show opponent's response */}
+      {humanContinueContext && onHumanContinue && (
+        <Box flexDirection="column" gap={1} paddingX={1}>
+          <Box borderStyle="single" borderColor="yellow" paddingX={1}>
+            <Text bold color="yellow">
+              {humanContinueContext.opponentName} responded - Round {humanContinueContext.roundNumber}/{humanContinueContext.totalRounds}
+            </Text>
+          </Box>
+
+          <Text wrap="wrap" dimColor>
+            <Text bold>Question:</Text> {humanContinueContext.question}
+          </Text>
+
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold color={theme.speaker2}>{humanContinueContext.opponentName}:</Text>
+            <Box marginLeft={2} marginTop={1}>
+              <Text wrap="wrap">{humanContinueContext.opponentMessage}</Text>
+            </Box>
+          </Box>
+
+          <Box marginTop={1} borderStyle="round" borderColor="green" paddingX={1}>
+            <Text color="green">
+              {humanContinueContext.isLastRound
+                ? "Press Enter to proceed to judging..."
+                : "Press Enter to continue to your turn..."}
+            </Text>
+          </Box>
+        </Box>
+      )}
+
       {/* Debate progress */}
-      {(phase === "debating" || phase === "judging") && !humanInputContext && (
+      {(phase === "debating" || phase === "judging") && !humanInputContext && !humanContinueContext && (
         <>
           <ProgressBar
             current={completedExchanges}

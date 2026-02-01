@@ -8,7 +8,7 @@ export function generateInitialPrompt(name: string): string {
 Be concise. Keep your response under 300 words.`;
 }
 
-export const DEFAULT_JUDGE_PROMPT = `You are an impartial debate judge. Analyze this debate and declare who won. Penalize verbosity.`;
+export const DEFAULT_JUDGE_PROMPT = `You are an impartial debate judge. Analyze the arguments made in this debate and declare who won. Keep your reasoning under 100 words.`;
 
 export function createJudgeAgent(
   modelId: string = DEFAULT_MODEL_ID,

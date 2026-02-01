@@ -22,6 +22,7 @@ Options:
   --issues <topics>         Comma-separated focus topics
   --human-coach             Enable human coaching
   --no-human-coach          Disable human coaching
+  --human-side <side>       Which side human plays ("speaker1" or "speaker2")
   --debates <number>        Number of debates to run
   --autopilot               Run debates without human intervention
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
@@ -80,6 +81,7 @@ interface CliArgs {
   questions?: number;
   issues?: string;
   humanCoach?: boolean;
+  humanSide?: "speaker1" | "speaker2";
   debates?: number;
   autopilot?: boolean;
   forkFrom?: string;
@@ -135,6 +137,12 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--no-human-coach":
         result.humanCoach = false;
+        break;
+      case "--human-side":
+        if (nextArg === "speaker1" || nextArg === "speaker2") {
+          result.humanSide = nextArg;
+        }
+        i++;
         break;
       case "--debates":
         result.debates = parseInt(nextArg, 10);
