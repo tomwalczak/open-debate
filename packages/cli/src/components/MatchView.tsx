@@ -45,12 +45,14 @@ export function MatchView({
     (a, b) => a.topicIndex - b.topicIndex
   );
 
+  const isTTY = process.stdin.isTTY;
+
   // Handle Enter key for continue prompt
   useInput((input, key) => {
     if (humanContinueContext && onHumanContinue && key.return) {
       onHumanContinue();
     }
-  });
+  }, { isActive: isTTY && !!humanContinueContext });
 
   // Auto-select first active topic when selection becomes invalid or pending
   useEffect(() => {

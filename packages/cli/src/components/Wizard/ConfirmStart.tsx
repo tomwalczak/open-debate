@@ -2,6 +2,8 @@ import React from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "../../theme.js";
 
+const isTTY = process.stdin.isTTY;
+
 interface ConfirmStartProps {
   speaker1Name: string;
   speaker2Name: string;
@@ -27,7 +29,7 @@ export function ConfirmStart({
     } else if (key.upArrow || input === "e" || input === "E") {
       onEdit();
     }
-  });
+  }, { isActive: isTTY });
 
   return (
     <Box flexDirection="column" gap={1}>

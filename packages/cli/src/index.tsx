@@ -25,6 +25,7 @@ Options:
   --human-side <side>       Which side human plays ("speaker1" or "speaker2")
   --debates <number>        Number of debates to run
   --autopilot               Run debates without human intervention
+  --no-ui                   Headless mode (no terminal UI, just console output)
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
   --resume <match-id>       Resume an incomplete match from where it left off
   --self-improve            Enable agent self-improvement (default: on)
@@ -99,7 +100,7 @@ import {
   validateConfig,
   findProjectConfigPath,
 } from "@open-debate/core";
-import type { CLIModelOverrides } from "@open-debate/core";
+import type { CLIModelOverrides, MatchConfig, MatchCallbacks, MatchState, MatchSummary, IssueArgumentSummary, TopicExecutionState } from "@open-debate/core";
 
 // Quick parse of model overrides for config commands
 function parseModelOverrides(rawArgs: string[]): CLIModelOverrides {
@@ -170,10 +171,6 @@ if (args.includes("--show-models")) {
   process.exit(0);
 }
 
-import React from "react";
-import { render } from "ink";
-import { App } from "./app.js";
-
 export interface CliArgs {
   prompt?: string;
   speaker1?: string;
@@ -187,6 +184,7 @@ export interface CliArgs {
   humanSide?: "speaker1" | "speaker2";
   debates?: number;
   autopilot?: boolean;
+  noUi?: boolean;
   forkFrom?: string;
   resume?: string;
   selfImprove?: boolean;
@@ -265,6 +263,9 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--autopilot":
         result.autopilot = true;
+        break;
+      case "--no-ui":
+        result.noUi = true;
         break;
       case "--fork-from":
         result.forkFrom = nextArg;
@@ -356,20 +357,149 @@ function parseArgs(rawArgs: string[]): CliArgs {
 
 const cliArgs = parseArgs(args);
 
-const isTTY = process.stdin.isTTY;
+// Headless mode - no UI, just console output
+if (cliArgs.noUi) {
+  import("@open-debate/core").then(async (core) => {
+    const { runMatch, generateDisplayNames, parseMatchPrompt } = core;
+    const resolvedConfig = loadConfig(cliArgs.modelOverrides);
 
-// Create a mock stdin for non-TTY environments
-import { Readable } from "stream";
+    // Build match config from CLI args
+    let speaker1Name = cliArgs.speaker1 || "";
+    let speaker2Name = cliArgs.speaker2 || "";
+    let speaker1Persona = cliArgs.speaker1 || "";
+    let speaker2Persona = cliArgs.speaker2 || "";
+    let topics = cliArgs.topics || 5;
+    let turns = cliArgs.turns || 3;
+    let debates = cliArgs.debates || 1;
+    let issueFocus = cliArgs.issues?.split(",").map(s => s.trim()) || [];
 
-let stdinStream: NodeJS.ReadStream | Readable = process.stdin;
-if (!isTTY) {
-  // Create a dummy readable stream that satisfies Ink but doesn't use raw mode
-  const mockStdin = new Readable({ read() {} }) as unknown as NodeJS.ReadStream;
-  (mockStdin as NodeJS.ReadStream & { isTTY: boolean }).isTTY = false;
-  (mockStdin as NodeJS.ReadStream & { setRawMode: (mode: boolean) => NodeJS.ReadStream }).setRawMode = function() { return this as unknown as NodeJS.ReadStream; };
-  stdinStream = mockStdin;
+    // Handle --prompt mode
+    if (cliArgs.prompt) {
+      console.log("Parsing prompt...");
+      const parsed = await parseMatchPrompt(cliArgs.prompt, resolvedConfig.models.promptParser);
+      if (!parsed.speaker1 || !parsed.speaker2) {
+        console.error("Could not extract two speakers from prompt");
+        process.exit(1);
+      }
+      speaker1Persona = parsed.speaker1;
+      speaker2Persona = parsed.speaker2;
+      topics = parsed.topicsPerDebate;
+      turns = parsed.turnsPerTopic;
+      debates = parsed.totalDebates;
+      issueFocus = parsed.issueFocus || [];
+    }
+
+    if (!speaker1Persona || !speaker2Persona) {
+      console.error("Error: --speaker1 and --speaker2 are required (or use --prompt)");
+      process.exit(1);
+    }
+
+    // Generate display names
+    console.log("Generating display names...");
+    const [name1, name2] = await generateDisplayNames(speaker1Persona, speaker2Persona, resolvedConfig.models.nameGenerator);
+    speaker1Name = name1;
+    speaker2Name = name2;
+
+    const matchConfig: MatchConfig = {
+      speaker1Name,
+      speaker2Name,
+      speaker1Persona,
+      speaker2Persona,
+      totalDebates: debates,
+      topicsPerDebate: topics,
+      turnsPerTopic: turns,
+      humanCoachEnabled: false,
+      selfImprove: cliArgs.selfImprove ?? true,
+      issueFocus: issueFocus.length > 0 ? issueFocus : undefined,
+      modelId: resolvedConfig.models.default,
+      models: resolvedConfig.models,
+      seed1: cliArgs.seed1,
+      seed2: cliArgs.seed2,
+      judgeSeed: cliArgs.judgeSeed,
+    };
+
+    console.log(`\n=== ${speaker1Name} vs ${speaker2Name} ===\n`);
+
+    // Track issue arguments for waiting before exit
+    let expectedIssues = 0;
+    let receivedIssues = 0;
+    let matchId = "";
+    let resolveIssueArgs: () => void;
+    const issueArgsComplete = new Promise<void>((resolve) => { resolveIssueArgs = resolve; });
+
+    // Track which topics we've logged to avoid duplicates
+    const loggedTopicStarts = new Set<number>();
+    const loggedTopicCompletes = new Set<number>();
+
+    const callbacks: MatchCallbacks = {
+      onMatchStart: (m: MatchState) => {
+        matchId = m.id;
+        console.log(`Match started: ${m.id}`);
+      },
+      onDebateStart: (n: number) => console.log(`\n--- Debate ${n} ---`),
+      onDebateEnd: (n: number, s1: number, s2: number) => console.log(`Debate ${n} result: ${speaker1Name} ${s1} - ${s2} ${speaker2Name}`),
+      onMatchEnd: () => console.log("\nMatch complete!"),
+      onMatchSummary: (s: MatchSummary) => {
+        expectedIssues = s.issues.length;
+        console.log("\n=== Summary ===");
+        console.log("Issues:", s.issues.join(", "));
+        console.log("\n" + s.summary);
+        if (expectedIssues === 0) resolveIssueArgs();
+      },
+      onIssueArgumentReady: (issueArg: IssueArgumentSummary) => {
+        receivedIssues++;
+        console.log(`\n--- ${issueArg.issue} ---`);
+        console.log(`${speaker1Name}: ${issueArg.speaker1Argument}`);
+        console.log(`${speaker2Name}: ${issueArg.speaker2Argument}`);
+        if (receivedIssues >= expectedIssues) resolveIssueArgs();
+      },
+      onTopicStateChange: (s: TopicExecutionState) => {
+        if (s.status === "debating" && s.exchanges.length === 0 && !loggedTopicStarts.has(s.topicIndex)) {
+          loggedTopicStarts.add(s.topicIndex);
+          console.log(`  Topic ${s.topicIndex + 1}: "${s.topic.slice(0, 60)}..."`);
+        } else if (s.status === "complete" && s.verdict && !loggedTopicCompletes.has(s.topicIndex)) {
+          loggedTopicCompletes.add(s.topicIndex);
+          console.log(`  Topic ${s.topicIndex + 1}: Winner determined`);
+        }
+      },
+      onTopicStreamChunk: () => {},
+      onLearning: () => console.log("Agents reflecting..."),
+      onError: (e: Error) => console.error("Error:", e.message),
+    };
+
+    try {
+      const match = await runMatch(matchConfig, callbacks, cliArgs.forkFrom);
+      // Wait for issue argument generation to complete
+      console.log("\nGenerating argument breakdowns...");
+      await issueArgsComplete;
+      console.log(`\nSaved to matches/${match.id}/`);
+      process.exit(0);
+    } catch (error) {
+      console.error("Match failed:", error);
+      process.exit(1);
+    }
+  });
+} else {
+  // Interactive UI mode
+  const isTTY = process.stdin.isTTY;
+
+  // Create a mock stdin for non-TTY environments
+  const { Readable } = await import("stream");
+
+  let stdinStream: NodeJS.ReadStream | typeof Readable.prototype = process.stdin;
+  if (!isTTY) {
+    // Create a dummy readable stream that satisfies Ink but doesn't use raw mode
+    const mockStdin = new Readable({ read() {} }) as unknown as NodeJS.ReadStream;
+    (mockStdin as NodeJS.ReadStream & { isTTY: boolean }).isTTY = false;
+    (mockStdin as NodeJS.ReadStream & { setRawMode: (mode: boolean) => NodeJS.ReadStream }).setRawMode = function() { return this as unknown as NodeJS.ReadStream; };
+    stdinStream = mockStdin;
+  }
+
+  const React = await import("react");
+  const { render } = await import("ink");
+  const { App } = await import("./app.js");
+
+  render(React.createElement(App, { cliArgs: Object.keys(cliArgs).length > 0 ? cliArgs : undefined }), {
+    stdin: stdinStream as NodeJS.ReadStream,
+  });
 }
-
-render(<App cliArgs={Object.keys(cliArgs).length > 0 ? cliArgs : undefined} />, {
-  stdin: stdinStream as NodeJS.ReadStream,
-});

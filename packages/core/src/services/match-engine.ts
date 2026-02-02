@@ -1,10 +1,10 @@
-import { streamText } from "ai";
+import { streamText } from "./llm.js";
 import { getModel } from "./model-provider.js";
 import { createJudgeAgent } from "./agent-factory.js";
 import { judgeTopic, calculateFinalTally, generateMatchSummary, generateIssueArgumentSummary } from "./judge-service.js";
 import type { MatchSummary, IssueArgumentSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
-import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchForResume, type CreateMatchResult } from "./match-storage.js";
+import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchForResume, saveMatchSummary, saveIssueArgumentSummary, type CreateMatchResult } from "./match-storage.js";
 import { generateTopics } from "./topic-generator.js";
 import { generateId } from "../utils/id.js";
 import { processHumanInput } from "./response-expander.js";
@@ -32,6 +32,7 @@ const MAX_CONCURRENT_TOPICS = 5;
 /**
  * Generate issue argument summaries in parallel and deliver via callback.
  * Does not block - fires callbacks as each issue completes.
+ * Also saves each issue argument to disk.
  */
 function generateIssueArgumentsInBackground(
   summary: MatchSummary,
@@ -50,6 +51,9 @@ function generateIssueArgumentsInBackground(
       debates,
       modelId
     ).then((issueArg) => {
+      // Save to disk
+      saveIssueArgumentSummary(dirPath, issueArg);
+      // Notify callback
       onIssueArgumentReady(issueArg);
     }).catch((err) => {
       logMatchError(dirPath, err, `Failed to generate argument summary for issue: ${issue}`);
@@ -564,6 +568,7 @@ export async function runMatch(
       match.completedDebates,
       getModelForRole(config, "summary")
     );
+    saveMatchSummary(match.dirPath, summary);
     callbacks.onMatchSummary(summary);
 
     // Generate issue argument summaries in parallel (non-blocking)
@@ -689,6 +694,7 @@ export async function resumeMatch(
       match.completedDebates,
       getModelForRole(config, "summary")
     );
+    saveMatchSummary(match.dirPath, summary);
     callbacks.onMatchSummary(summary);
 
     // Generate issue argument summaries in parallel (non-blocking)

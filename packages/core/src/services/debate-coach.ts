@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText } from "./llm.js";
 import { getModel } from "./model-provider.js";
 import type { Exchange } from "../types/debate.js";
 

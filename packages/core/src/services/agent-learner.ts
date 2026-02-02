@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText } from "./llm.js";
 import { getModel } from "./model-provider.js";
 import { saveAgentPrompt, appendAgentLearnings, readAgentLearnings, generatePromptFromLearnings } from "./match-storage.js";
 import type { AgentConfig } from "../types/agent.js";

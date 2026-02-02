@@ -5,6 +5,8 @@ import type { Exchange, CoachMessage } from "@open-debate/core";
 import { theme } from "../theme.js";
 import { Spinner } from "./Spinner.js";
 
+const isTTY = process.stdin.isTTY;
+
 interface HumanDebateInputProps {
   turnNumber: number;
   totalTurns: number;
@@ -59,7 +61,7 @@ export function HumanDebateInput({
       setLines(newLines);
       setCurrentLineIndex(currentLineIndex - 1);
     }
-  });
+  }, { isActive: isTTY && isMultiline });
 
   const handleLineChange = (value: string) => {
     if (isMultiline) {

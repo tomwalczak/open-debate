@@ -42,7 +42,7 @@ function TabBarInput({
     } else if (key.rightArrow && activeIndex < topicStates.length - 1) {
       onSwitch(activeIndex + 1);
     }
-  });
+  }, { isActive: isTTY });
   return null;
 }
 

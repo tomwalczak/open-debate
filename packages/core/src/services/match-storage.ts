@@ -1,10 +1,10 @@
 import * as fs from "fs";
 import * as path from "path";
-import { generateText } from "ai";
+import { generateText } from "./llm.js";
 import { getModel } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { MatchConfig, MatchState, DebateResult, TopicResult } from "../types/debate.js";
-import type { FinalTally } from "../types/judge.js";
+import type { FinalTally, MatchSummary, IssueArgumentSummary } from "../types/judge.js";
 import type { LLMRole } from "../types/config.js";
 import { generateId } from "../utils/id.js";
 import { generateInitialPrompt, DEFAULT_JUDGE_PROMPT } from "./agent-factory.js";
@@ -633,4 +633,43 @@ export async function loadMatchForResume(
   });
 
   return { match, judgePrompt, startFromDebate };
+}
+
+/**
+ * Saves the match summary to the match directory.
+ */
+export function saveMatchSummary(
+  matchDirPath: string,
+  summary: MatchSummary
+): void {
+  fs.writeFileSync(
+    path.join(matchDirPath, "match-summary.json"),
+    JSON.stringify(summary, null, 2)
+  );
+}
+
+/**
+ * Saves an issue argument summary to the match directory.
+ * Appends to issue-arguments.json array.
+ */
+export function saveIssueArgumentSummary(
+  matchDirPath: string,
+  issueArg: IssueArgumentSummary
+): void {
+  const filePath = path.join(matchDirPath, "issue-arguments.json");
+
+  let existing: IssueArgumentSummary[] = [];
+  if (fs.existsSync(filePath)) {
+    existing = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  }
+
+  // Add new issue argument (avoid duplicates by issue title)
+  const existingIndex = existing.findIndex(e => e.issue === issueArg.issue);
+  if (existingIndex >= 0) {
+    existing[existingIndex] = issueArg;
+  } else {
+    existing.push(issueArg);
+  }
+
+  fs.writeFileSync(filePath, JSON.stringify(existing, null, 2));
 }

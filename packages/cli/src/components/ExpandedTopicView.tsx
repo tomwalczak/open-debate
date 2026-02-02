@@ -52,12 +52,11 @@ export function ExpandedTopicView({
   }, [stdout]);
 
   // Scroll controls (up/down arrows) - only in TTY mode
-  if (isTTY) {
-    useInput((input, key) => {
-      if (key.upArrow) scrollRef.current?.scrollBy(-3);
-      if (key.downArrow) scrollRef.current?.scrollBy(3);
-    });
-  }
+  useInput((input, key) => {
+    if (!isTTY) return;
+    if (key.upArrow) scrollRef.current?.scrollBy(-3);
+    if (key.downArrow) scrollRef.current?.scrollBy(3);
+  }, { isActive: isTTY });
 
   // Auto-scroll to bottom when new exchanges are added (not on every streaming char)
   useEffect(() => {

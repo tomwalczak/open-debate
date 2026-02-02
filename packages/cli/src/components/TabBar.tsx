@@ -16,7 +16,7 @@ function TabBarInput({ debates, onSwitch }: { debates: DebateState[]; onSwitch: 
     if (num >= 1 && num <= 9 && num <= debates.length) {
       onSwitch(num - 1);
     }
-  });
+  }, { isActive: isTTY });
   return null;
 }
 

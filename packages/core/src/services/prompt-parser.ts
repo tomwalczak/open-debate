@@ -1,4 +1,4 @@
-import { generateObject } from "ai";
+import { generateObject } from "./llm.js";
 import { z } from "zod";
 import { getModel } from "./model-provider.js";
 

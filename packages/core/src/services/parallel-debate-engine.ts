@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { streamText } from "./llm.js";
 import { getModel } from "./model-provider.js";
 import { createAgent } from "./agent-storage.js";
 import { createJudgeAgent } from "./agent-factory.js";

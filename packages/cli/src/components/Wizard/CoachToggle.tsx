@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 
+const isTTY = process.stdin.isTTY;
+
 interface CoachToggleProps {
   onComplete: (enabled: boolean) => void;
 }
@@ -16,7 +18,7 @@ export function CoachToggle({ onComplete }: CoachToggleProps) {
     } else if (key.leftArrow || key.rightArrow) {
       setSelected(!selected);
     }
-  });
+  }, { isActive: isTTY });
 
   return (
     <Box flexDirection="column" gap={1}>

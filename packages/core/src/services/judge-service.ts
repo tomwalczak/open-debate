@@ -21,7 +21,7 @@ export async function judgeTopic(
     .map((ex) => `[${ex.speakerId}]:\n${ex.message}`)
     .join("\n\n---\n\n");
 
-  const { object } = await generateObject<JudgeVerdict>({
+  const { object } = await generateObject({
     model: getModel(judge.modelId),
     schema: verdictSchema,
     system: judge.systemPrompt,
@@ -104,7 +104,7 @@ export async function generateMatchSummary(
     summary: z.string().describe("3-4 sentences on what arguments made the difference"),
   });
 
-  const { object } = await generateObject<MatchSummary>({
+  const { object } = await generateObject({
     model: getModel(modelId),
     schema: matchSummarySchema,
     prompt: `You judged a debate. Here are your verdicts for each topic:
@@ -156,7 +156,7 @@ export async function generateIssueArgumentSummary(
     speaker2Argument: z.string().describe(`Hierarchical propositional summary of ${speaker2Name}'s best argument on this issue. Use indented bullet points to show logical structure (main claim → supporting reasons → evidence/examples)`),
   });
 
-  const { object } = await generateObject<{ speaker1Argument: string; speaker2Argument: string }>({
+  const { object } = await generateObject({
     model: getModel(modelId),
     schema: issueArgSchema,
     prompt: `Issue: "${issue}"

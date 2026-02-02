@@ -25,6 +25,8 @@ export {
   readAgentLearnings,
   saveAgentPrompt,
   generatePromptFromLearnings,
+  saveMatchSummary,
+  saveIssueArgumentSummary,
 } from "./match-storage.js";
 export { runMatch, resumeMatch, type MatchCallbacks, type HumanInputContext, type HumanContinueContext } from "./match-engine.js";
 export { parseMatchPrompt, type ParsedMatchConfig } from "./prompt-parser.js";
