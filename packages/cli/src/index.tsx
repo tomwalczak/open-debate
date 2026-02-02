@@ -29,13 +29,32 @@ Options:
   --resume <match-id>       Resume an incomplete match from where it left off
   --self-improve            Enable agent self-improvement (default: on)
   --no-self-improve         Disable agent self-improvement
-  --model <model>           Model ID (backend:model format, see below)
   --narrate                 Enable real-time narrator commentary (off by default)
   --no-narrate              Disable narrator commentary (default)
-  --judge-seed <text>       Instructions for judge persona (e.g., "liberal judge aligned with Democratic party values")
+  --judge-seed <text>       Instructions for judge persona
+
+Model Options:
+  --model <id>              Default model for all roles
+  --speaker1-model <id>     Model for speaker 1
+  --speaker2-model <id>     Model for speaker 2
+  --judge-model <id>        Model for judging
+  --coach-model <id>        Model for debate coaching
+  --topic-model <id>        Model for topic generation
+  --narrator-model <id>     Model for narrator
+  --analysis-model <id>     Model for self-analysis
+  --prompt-model <id>       Model for prompt generation
+  --summary-model <id>      Model for match summary
+  --name-model <id>         Model for name extraction
+  --parser-model <id>       Model for prompt parsing
+
+Config Commands:
+  --init-config             Create debate.config.json in current directory
+  --show-config             Show resolved configuration (all sources merged)
+  --show-models             Show model for each role
+  --validate-config         Validate config file
   --help                    Show this help message
 
-Model Selection:
+Model Formats:
   Direct APIs:
     openai:gpt-5.2                      GPT-5.2 via OpenAI
     google:gemini-2.5-flash             Gemini 2.5 Flash via Google
@@ -43,13 +62,19 @@ Model Selection:
     anthropic:claude-sonnet-4-5-20251101 Claude Sonnet 4.5 via Anthropic
     anthropic:claude-opus-4-5-20251101  Claude Opus 4.5 via Anthropic
 
-  Via OpenRouter (any model):
+  Via OpenRouter (default):
+    qwen/qwen3-next-80b-a3b-instruct    Qwen 3 80B (default)
     openrouter:openai/gpt-5.2           GPT-5.2 via OpenRouter
     openrouter:anthropic/claude-opus-4.5 Opus via OpenRouter
-    qwen/qwen3-next-80b-a3b-instruct    Qwen 3 80B (default)
+
+Config Files (priority order):
+  1. CLI flags (highest)
+  2. ./debate.config.json (project)
+  3. ~/.config/open-debate/config.json (user)
+  4. Built-in defaults (lowest)
 
 Environment:
-  OPENROUTER_API_KEY              For OpenRouter models (tested)
+  OPENROUTER_API_KEY              For OpenRouter models (default)
   OPENAI_API_KEY                  For openai:* models
   ANTHROPIC_API_KEY               For anthropic:* models
   GOOGLE_GENERATIVE_AI_API_KEY    For google:* models
@@ -59,6 +84,7 @@ Examples:
   npx debate --prompt "5 debates between an atheist and a Catholic about morality"
   npx debate --speaker1 "Alex Epstein" --speaker2 "Al Gore" --issues "climate,energy"
   npx debate --speaker1 "Elon Musk" --speaker2 "Bill Gates" --debates 5 --autopilot
+  npx debate --speaker1-model "anthropic:claude-opus-4-5-20251101" --speaker2-model "openai:gpt-5.2"
 
 Keys during debate:
   1-9         Switch between active topic tabs
@@ -67,11 +93,92 @@ Keys during debate:
   process.exit(0);
 }
 
+// Handle config commands before other imports
+import {
+  loadConfig,
+  initConfig,
+  formatResolvedConfig,
+  formatModels,
+  validateConfig,
+  findProjectConfigPath,
+} from "@open-debate/core";
+import type { CLIModelOverrides } from "@open-debate/core";
+
+// Quick parse of model overrides for config commands
+function parseModelOverrides(rawArgs: string[]): CLIModelOverrides {
+  const overrides: CLIModelOverrides = {};
+  const flagMap: Record<string, keyof CLIModelOverrides> = {
+    "--model": "model",
+    "--speaker1-model": "speaker1Model",
+    "--speaker2-model": "speaker2Model",
+    "--judge-model": "judgeModel",
+    "--coach-model": "coachModel",
+    "--topic-model": "topicModel",
+    "--narrator-model": "narratorModel",
+    "--analysis-model": "analysisModel",
+    "--prompt-model": "promptModel",
+    "--summary-model": "summaryModel",
+    "--name-model": "nameModel",
+    "--parser-model": "parserModel",
+  };
+  for (let i = 0; i < rawArgs.length; i++) {
+    const key = flagMap[rawArgs[i]];
+    if (key && rawArgs[i + 1]) {
+      overrides[key] = rawArgs[i + 1];
+      i++;
+    }
+  }
+  return overrides;
+}
+
+if (args.includes("--init-config")) {
+  try {
+    const filepath = initConfig();
+    console.log(`Created config file: ${filepath}`);
+  } catch (e) {
+    console.error(`Error: ${(e as Error).message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
+if (args.includes("--validate-config")) {
+  const configPath = findProjectConfigPath();
+  if (!configPath) {
+    console.error("No config file found in current directory");
+    console.error("Run --init-config to create one");
+    process.exit(1);
+  }
+  const result = validateConfig(configPath);
+  if (result.valid) {
+    console.log(`\x1b[32m✓ Config file is valid: ${configPath}\x1b[0m`);
+    process.exit(0);
+  } else {
+    console.error(`\x1b[31m✗ Config file has errors:\x1b[0m`);
+    result.errors.forEach((e) => console.error(`  - ${e}`));
+    process.exit(1);
+  }
+}
+
+if (args.includes("--show-config")) {
+  const overrides = parseModelOverrides(args);
+  const config = loadConfig(Object.keys(overrides).length > 0 ? overrides : undefined);
+  console.log(formatResolvedConfig(config));
+  process.exit(0);
+}
+
+if (args.includes("--show-models")) {
+  const overrides = parseModelOverrides(args);
+  const config = loadConfig(Object.keys(overrides).length > 0 ? overrides : undefined);
+  console.log(formatModels(config));
+  process.exit(0);
+}
+
 import React from "react";
 import { render } from "ink";
 import { App } from "./app.js";
 
-interface CliArgs {
+export interface CliArgs {
   prompt?: string;
   speaker1?: string;
   speaker2?: string;
@@ -90,10 +197,13 @@ interface CliArgs {
   model?: string;
   narrate?: boolean;
   judgeSeed?: string;
+  // Per-role model overrides
+  modelOverrides?: CLIModelOverrides;
 }
 
 function parseArgs(rawArgs: string[]): CliArgs {
   const result: CliArgs = {};
+  const modelOverrides: CLIModelOverrides = {};
 
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
@@ -177,6 +287,7 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--model":
         result.model = nextArg;
+        modelOverrides.model = nextArg;
         i++;
         break;
       case "--narrate":
@@ -189,6 +300,57 @@ function parseArgs(rawArgs: string[]): CliArgs {
         result.judgeSeed = nextArg;
         i++;
         break;
+      // Per-role model overrides
+      case "--speaker1-model":
+        modelOverrides.speaker1Model = nextArg;
+        i++;
+        break;
+      case "--speaker2-model":
+        modelOverrides.speaker2Model = nextArg;
+        i++;
+        break;
+      case "--judge-model":
+        modelOverrides.judgeModel = nextArg;
+        i++;
+        break;
+      case "--coach-model":
+        modelOverrides.coachModel = nextArg;
+        i++;
+        break;
+      case "--topic-model":
+        modelOverrides.topicModel = nextArg;
+        i++;
+        break;
+      case "--narrator-model":
+        modelOverrides.narratorModel = nextArg;
+        i++;
+        break;
+      case "--analysis-model":
+        modelOverrides.analysisModel = nextArg;
+        i++;
+        break;
+      case "--prompt-model":
+        modelOverrides.promptModel = nextArg;
+        i++;
+        break;
+      case "--summary-model":
+        modelOverrides.summaryModel = nextArg;
+        i++;
+        break;
+      case "--name-model":
+        modelOverrides.nameModel = nextArg;
+        i++;
+        break;
+      case "--parser-model":
+        modelOverrides.parserModel = nextArg;
+        i++;
+        break;
+      // Config commands are handled earlier
+      case "--init-config":
+      case "--show-config":
+      case "--show-models":
+      case "--validate-config":
+        break;
       default:
         if (arg.startsWith("--")) {
           console.error(`\x1b[31mError: Unknown option "${arg}"\x1b[0m`);
@@ -197,6 +359,11 @@ function parseArgs(rawArgs: string[]): CliArgs {
         }
         break;
     }
+  }
+
+  // Only add modelOverrides if any were specified
+  if (Object.keys(modelOverrides).length > 0) {
+    result.modelOverrides = modelOverrides;
   }
 
   return result;

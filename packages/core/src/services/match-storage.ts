@@ -5,8 +5,17 @@ import { getModel } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { MatchConfig, MatchState, DebateResult, TopicResult } from "../types/debate.js";
 import type { FinalTally } from "../types/judge.js";
+import type { LLMRole } from "../types/config.js";
 import { generateId } from "../utils/id.js";
 import { generateInitialPrompt, DEFAULT_JUDGE_PROMPT } from "./agent-factory.js";
+
+/**
+ * Get the model ID for a specific role from config.
+ * Falls back to config.modelId if no per-role config exists.
+ */
+function getModelForRole(config: MatchConfig, role: LLMRole): string {
+  return config.models?.[role] ?? config.modelId;
+}
 
 const MATCHES_DIR = "matches";
 
@@ -289,23 +298,24 @@ export async function createMatch(
 
   // Generate prompts: use direct prompt if provided, otherwise generate from learnings
   // Direct prompts bypass LLM processing entirely
+  const promptGenModel = getModelForRole(config, "promptGenerator");
   const speaker1Prompt = config.directPrompt1
     ? config.directPrompt1
-    : await generatePromptFromLearnings(persona1, learnings1, config.modelId);
+    : await generatePromptFromLearnings(persona1, learnings1, promptGenModel);
   const speaker2Prompt = config.directPrompt2
     ? config.directPrompt2
-    : await generatePromptFromLearnings(persona2, learnings2, config.modelId);
+    : await generatePromptFromLearnings(persona2, learnings2, promptGenModel);
 
   // Save prompts (as cache/reference)
   fs.writeFileSync(path.join(speaker1Dir, "prompt.md"), speaker1Prompt);
   fs.writeFileSync(path.join(speaker2Dir, "prompt.md"), speaker2Prompt);
 
-  // Create agent configs
+  // Create agent configs with per-speaker models
   const firstSpeaker: AgentConfig = {
     id: generateId(),
     name: config.speaker1Name,
     systemPrompt: speaker1Prompt,
-    modelId: config.modelId,
+    modelId: getModelForRole(config, "speaker1"),
     dirPath: speaker1Dir,
   };
 
@@ -313,7 +323,7 @@ export async function createMatch(
     id: generateId(),
     name: config.speaker2Name,
     systemPrompt: speaker2Prompt,
-    modelId: config.modelId,
+    modelId: getModelForRole(config, "speaker2"),
     dirPath: speaker2Dir,
   };
 
@@ -335,7 +345,7 @@ export async function createMatch(
     modelId: config.modelId
   });
 
-  const judgePrompt = await generateJudgePrompt(config.judgeSeed, config.modelId);
+  const judgePrompt = await generateJudgePrompt(config.judgeSeed, promptGenModel);
   fs.writeFileSync(path.join(judgeDir, "prompt.md"), judgePrompt);
 
   // Save seed instructions if provided
@@ -569,12 +579,12 @@ export async function loadMatchForResume(
   const speaker1Prompt = fs.readFileSync(path.join(speaker1Dir, "prompt.md"), "utf-8");
   const speaker2Prompt = fs.readFileSync(path.join(speaker2Dir, "prompt.md"), "utf-8");
 
-  // Create agent configs
+  // Create agent configs with per-speaker models
   const firstSpeaker: AgentConfig = {
     id: generateId(),
     name: config.speaker1Name,
     systemPrompt: speaker1Prompt,
-    modelId: config.modelId,
+    modelId: getModelForRole(config, "speaker1"),
     dirPath: speaker1Dir,
   };
 
@@ -582,7 +592,7 @@ export async function loadMatchForResume(
     id: generateId(),
     name: config.speaker2Name,
     systemPrompt: speaker2Prompt,
-    modelId: config.modelId,
+    modelId: getModelForRole(config, "speaker2"),
     dirPath: speaker2Dir,
   };
 

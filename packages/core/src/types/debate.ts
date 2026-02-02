@@ -1,5 +1,6 @@
 import type { AgentConfig } from "./agent.js";
 import type { JudgeVerdict, FinalTally } from "./judge.js";
+import type { ResolvedModelConfig } from "./config.js";
 
 // Match = series of debates between two speakers
 export interface MatchConfig {
@@ -13,7 +14,8 @@ export interface MatchConfig {
   humanCoachEnabled: boolean;
   selfImprove: boolean;
   issueFocus?: string[];
-  modelId: string;
+  modelId: string;  // Default model (backward compat) - use models.default if available
+  models?: ResolvedModelConfig;  // Per-role model configuration
   seed1?: string;  // User instructions for speaker 1's initial prompt
   seed2?: string;  // User instructions for speaker 2's initial prompt
   directPrompt1?: string;  // Direct system prompt for speaker 1 (bypasses generation)

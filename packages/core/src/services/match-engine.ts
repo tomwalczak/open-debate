@@ -10,6 +10,7 @@ import { generateId } from "../utils/id.js";
 import { narrateExchange } from "./narrator.js";
 import { processHumanInput } from "./response-expander.js";
 import type { AgentConfig } from "../types/agent.js";
+import type { LLMRole } from "../types/config.js";
 import type {
   MatchConfig,
   MatchState,
@@ -18,6 +19,14 @@ import type {
   TopicResult,
   TopicExecutionState,
 } from "../types/debate.js";
+
+/**
+ * Get the model ID for a specific role from config.
+ * Falls back to config.modelId if no per-role config exists.
+ */
+function getModelForRole(config: MatchConfig, role: LLMRole): string {
+  return config.models?.[role] ?? config.modelId;
+}
 
 const MAX_CONCURRENT_TOPICS = 5;
 
@@ -156,7 +165,7 @@ async function executeTopic(
   judge: AgentConfig,
   callbacks: MatchCallbacks,
   narrate: boolean,
-  modelId: string,
+  config: MatchConfig,
   humanSpeakerId?: string,
   humanSpeakerPersona?: string
 ): Promise<TopicResult> {
@@ -208,7 +217,7 @@ async function executeTopic(
         topic,
         exchanges,
         turn,
-        modelId
+        getModelForRole(config, "coach") // Use coach model for human input expansion
       );
     } else {
       // AI's turn
@@ -256,7 +265,7 @@ async function executeTopic(
       const summary = await narrateExchange(
         exchange1,
         topic,
-        modelId,
+        getModelForRole(config, "narrator"),
         previousExchanges,
         (chunk) => {
           topicState = {
@@ -328,7 +337,7 @@ async function executeTopic(
         topic,
         exchanges,
         turn,
-        modelId
+        getModelForRole(config, "coach") // Use coach model for human input expansion
       );
     } else {
       // AI's turn
@@ -376,7 +385,7 @@ async function executeTopic(
       const summary = await narrateExchange(
         exchange2,
         topic,
-        modelId,
+        getModelForRole(config, "narrator"),
         previousExchanges,
         (chunk) => {
           topicState = {
@@ -459,7 +468,7 @@ async function runSingleDebate(
   judgePrompt: string
 ): Promise<{ topicResults: TopicResult[]; speaker1Wins: number; speaker2Wins: number }> {
   const { firstSpeaker, secondSpeaker, config } = match;
-  const judge = createJudgeAgent(config.modelId, judgePrompt);
+  const judge = createJudgeAgent(getModelForRole(config, "judge"), judgePrompt);
 
   // Determine which speaker is human (if any)
   const humanSpeakerId = config.humanSide === "speaker1"
@@ -494,7 +503,7 @@ async function runSingleDebate(
         judge,
         callbacks,
         config.narrate ?? false,
-        config.modelId,
+        config,
         humanSpeakerId,
         humanSpeakerPersona
       )
@@ -547,7 +556,7 @@ export async function runMatch(
         speaker2Persona: config.speaker2Persona,
         count: config.topicsPerDebate,
         issueFocus: config.issueFocus || [],
-        modelId: config.modelId,
+        modelId: getModelForRole(config, "topicGenerator"),
       });
 
       // Run debate
@@ -569,12 +578,13 @@ export async function runMatch(
       // Learning phase
       callbacks.onLearning();
 
+      const analysisModel = getModelForRole(config, "analysis");
       await Promise.all([
         updateAgentAfterDebate(
           match.firstSpeaker,
           topicResults,
           match.secondSpeaker,
-          match.firstSpeaker.modelId,
+          analysisModel,
           undefined,
           config.selfImprove
         ),
@@ -582,7 +592,7 @@ export async function runMatch(
           match.secondSpeaker,
           topicResults,
           match.firstSpeaker,
-          match.secondSpeaker.modelId,
+          analysisModel,
           undefined,
           config.selfImprove
         ),
@@ -618,7 +628,7 @@ export async function runMatch(
       config.speaker1Name,
       config.speaker2Name,
       match.completedDebates,
-      config.modelId
+      getModelForRole(config, "summary")
     );
     callbacks.onMatchSummary(summary);
   } catch (error) {
@@ -658,7 +668,7 @@ export async function resumeMatch(
         speaker2Persona: config.speaker2Persona,
         count: config.topicsPerDebate,
         issueFocus: config.issueFocus || [],
-        modelId: config.modelId,
+        modelId: getModelForRole(config, "topicGenerator"),
       });
 
       // Run debate
@@ -680,12 +690,13 @@ export async function resumeMatch(
       // Learning phase
       callbacks.onLearning();
 
+      const analysisModel = getModelForRole(config, "analysis");
       await Promise.all([
         updateAgentAfterDebate(
           match.firstSpeaker,
           topicResults,
           match.secondSpeaker,
-          match.firstSpeaker.modelId,
+          analysisModel,
           undefined,
           config.selfImprove
         ),
@@ -693,7 +704,7 @@ export async function resumeMatch(
           match.secondSpeaker,
           topicResults,
           match.firstSpeaker,
-          match.secondSpeaker.modelId,
+          analysisModel,
           undefined,
           config.selfImprove
         ),
@@ -729,7 +740,7 @@ export async function resumeMatch(
       config.speaker1Name,
       config.speaker2Name,
       match.completedDebates,
-      config.modelId
+      getModelForRole(config, "summary")
     );
     callbacks.onMatchSummary(summary);
   } catch (error) {

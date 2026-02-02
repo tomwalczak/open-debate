@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Box, Text, useApp } from "ink";
 import {
   SpeakerInput,
@@ -16,6 +16,7 @@ import {
   generateDisplayNames,
   parseMatchPrompt,
   getDebateCoaching,
+  loadConfig,
   DEFAULT_MODEL_ID,
   DEFAULT_WIZARD_STATE,
   type MatchCallbacks,
@@ -30,6 +31,8 @@ import {
   type CoachContext,
   type CoachMessage,
   type MatchSummary,
+  type CLIModelOverrides,
+  type ResolvedConfig,
 } from "@open-debate/core";
 
 export interface AppProps {
@@ -54,6 +57,7 @@ export interface AppProps {
     narrate?: boolean;
     judgeSeed?: string;
     humanSide?: "speaker1" | "speaker2";
+    modelOverrides?: CLIModelOverrides;
   };
 }
 
@@ -69,11 +73,18 @@ export function App({ cliArgs }: AppProps) {
   const [debateResults, setDebateResults] = useState<Array<{ speaker1Wins: number; speaker2Wins: number }>>([]);
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [modelId] = useState(cliArgs?.model || DEFAULT_MODEL_ID);
   const [humanInputResolver, setHumanInputResolver] = useState<((value: string) => void) | null>(null);
   const [humanInputContext, setHumanInputContext] = useState<HumanInputContext | null>(null);
   const [humanContinueResolver, setHumanContinueResolver] = useState<(() => void) | null>(null);
   const [humanContinueContext, setHumanContinueContext] = useState<HumanContinueContext | null>(null);
+
+  // Load and resolve configuration (config files + CLI overrides)
+  const resolvedConfig: ResolvedConfig = useMemo(() => {
+    return loadConfig(cliArgs?.modelOverrides);
+  }, [cliArgs?.modelOverrides]);
+
+  // Default model from resolved config
+  const modelId = resolvedConfig.models.default;
 
   const callbacks: MatchCallbacks = {
     onMatchStart: (m: MatchState) => {
@@ -159,7 +170,7 @@ export function App({ cliArgs }: AppProps) {
       context,
       conversationHistory,
       userRequest,
-      modelId,
+      modelId: resolvedConfig.models.coach,
     });
   };
 
@@ -197,7 +208,7 @@ export function App({ cliArgs }: AppProps) {
 
     setIsLoading(true);
     try {
-      const parsed = await parseMatchPrompt(cliArgs.prompt, modelId);
+      const parsed = await parseMatchPrompt(cliArgs.prompt, resolvedConfig.models.promptParser);
 
       if (!parsed.speaker1 || !parsed.speaker2) {
         console.error("Could not extract two speakers from prompt:", cliArgs.prompt);
@@ -206,7 +217,7 @@ export function App({ cliArgs }: AppProps) {
       }
 
       // Generate short display names
-      const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, modelId);
+      const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, resolvedConfig.models.nameGenerator);
 
       const matchConfig: MatchConfig = {
         speaker1Name: name1,
@@ -220,6 +231,7 @@ export function App({ cliArgs }: AppProps) {
         selfImprove: cliArgs.selfImprove ?? true,
         issueFocus: parsed.issueFocus,
         modelId,
+        models: resolvedConfig.models,
         narrate: parsed.narrate,
         judgeSeed: cliArgs.judgeSeed,
         humanSide: cliArgs.humanSide,
@@ -239,7 +251,7 @@ export function App({ cliArgs }: AppProps) {
     const issues = cliArgs.issues?.split(",").map((s) => s.trim()) || [];
 
     // Generate short display names from potentially long personas (in one call for consistency)
-    const [name1, name2] = await generateDisplayNames(cliArgs.speaker1, cliArgs.speaker2, modelId);
+    const [name1, name2] = await generateDisplayNames(cliArgs.speaker1, cliArgs.speaker2, resolvedConfig.models.nameGenerator);
 
     const matchConfig: MatchConfig = {
       speaker1Name: name1,
@@ -253,6 +265,7 @@ export function App({ cliArgs }: AppProps) {
       selfImprove: cliArgs.selfImprove ?? true,
       issueFocus: issues.length > 0 ? issues : undefined,
       modelId,
+      models: resolvedConfig.models,
       seed1: cliArgs.seed1,
       seed2: cliArgs.seed2,
       directPrompt1: cliArgs.directPrompt1,
@@ -272,7 +285,7 @@ export function App({ cliArgs }: AppProps) {
 
   const handleSpeakers = async (speaker1: string, speaker2: string) => {
     // Generate short display names from potentially long personas (in one call for consistency)
-    const [name1, name2] = await generateDisplayNames(speaker1, speaker2, modelId);
+    const [name1, name2] = await generateDisplayNames(speaker1, speaker2, resolvedConfig.models.nameGenerator);
 
     setWizard((prev) => ({
       ...prev,
@@ -289,7 +302,7 @@ export function App({ cliArgs }: AppProps) {
     if (!parsed.speaker1 || !parsed.speaker2) return;
 
     // Generate short display names from the parsed personas
-    const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, modelId);
+    const [name1, name2] = await generateDisplayNames(parsed.speaker1, parsed.speaker2, resolvedConfig.models.nameGenerator);
 
     // Skip wizard, go directly to running
     setWizard((prev) => ({ ...prev, step: "ready" }));
@@ -306,6 +319,7 @@ export function App({ cliArgs }: AppProps) {
       selfImprove: true,
       issueFocus: parsed.issueFocus,
       modelId,
+      models: resolvedConfig.models,
       narrate: parsed.narrate,
     };
 
@@ -331,6 +345,7 @@ export function App({ cliArgs }: AppProps) {
       humanCoachEnabled: false,
       selfImprove: true,
       modelId,
+      models: resolvedConfig.models,
       narrate: wizard.narrate,
     };
 
@@ -380,6 +395,7 @@ export function App({ cliArgs }: AppProps) {
       selfImprove: true,
       issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
       modelId,
+      models: resolvedConfig.models,
       narrate,
     };
 
@@ -404,7 +420,7 @@ export function App({ cliArgs }: AppProps) {
           <SpeakerInput
             onComplete={handleSpeakers}
             onNaturalLanguage={handleNaturalLanguage}
-            modelId={modelId}
+            modelId={resolvedConfig.models.promptParser}
           />
         )}
         {wizard.step === "confirm" && (

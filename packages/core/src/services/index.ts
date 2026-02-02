@@ -1,4 +1,19 @@
 export { getModel, DEFAULT_MODEL_ID, MODEL_REGISTRY, type ModelInfo } from "./model-provider.js";
+export {
+  loadConfig,
+  getModelForRole,
+  initConfig,
+  initUserConfig,
+  formatResolvedConfig,
+  formatModels,
+  validateConfig,
+  findProjectConfigPath,
+  generateDefaultConfigContent,
+  DEFAULT_CONFIG,
+  DEFAULT_MODEL_CONFIG,
+  DEFAULT_DEBATE_SETTINGS,
+  DEFAULT_OUTPUT_SETTINGS,
+} from "./config-loader.js";
 export { generateInitialPrompt, createJudgeAgent } from "./agent-factory.js";
 export { updateAgentAfterDebate } from "./agent-learner.js";
 export { generateTopics, refineTopics } from "./topic-generator.js";

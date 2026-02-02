@@ -259,7 +259,15 @@ export function MatchView({
           {/* Judge's Summary */}
           {matchSummary ? (
             <Box flexDirection="column" marginTop={1}>
-              <Text bold color={theme.accent}>Judge's Analysis:</Text>
+              <Text bold color={theme.accent}>Issues:</Text>
+              <Box flexDirection="column" marginLeft={1}>
+                {matchSummary.issues.map((issue, i) => (
+                  <Text key={i}>• {issue}</Text>
+                ))}
+              </Box>
+              <Box marginTop={1}>
+                <Text bold color={theme.accent}>Summary:</Text>
+              </Box>
               <Box marginTop={1}>
                 <Text wrap="wrap">{matchSummary.summary}</Text>
               </Box>

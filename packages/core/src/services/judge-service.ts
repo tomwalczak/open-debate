@@ -1,9 +1,9 @@
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText } from "./llm.js";
 import { z } from "zod";
 import { getModel, DEFAULT_MODEL_ID } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { Exchange, DebateResult } from "../types/debate.js";
-import type { JudgeVerdict, FinalTally, MatchSummary } from "../types/judge.js";
+import type { JudgeVerdict, FinalTally, MatchSummary, IssueArgumentSummary } from "../types/judge.js";
 
 const verdictSchema = z.object({
   reasoning: z.string().describe("What were the strongest arguments? What logic or evidence was most compelling? (max 100 words)"),
@@ -21,7 +21,7 @@ export async function judgeTopic(
     .map((ex) => `[${ex.speakerId}]:\n${ex.message}`)
     .join("\n\n---\n\n");
 
-  const { object } = await generateObject({
+  const { object } = await generateObject<JudgeVerdict>({
     model: getModel(judge.modelId),
     schema: verdictSchema,
     system: judge.systemPrompt,
@@ -99,38 +99,22 @@ export async function generateMatchSummary(
     return `Debate ${i + 1}: ${speaker1Name} ${s1Wins} - ${s2Wins} ${speaker2Name} (${winner} wins)\n${topicSummaries}`;
   }).join("\n\n");
 
-  const totalS1 = debates.reduce((sum, d) => sum + d.finalTally.speaker1Wins, 0);
-  const totalS2 = debates.reduce((sum, d) => sum + d.finalTally.speaker2Wins, 0);
-  const overallWinner = totalS1 > totalS2 ? speaker1Name : totalS2 > totalS1 ? speaker2Name : "Tie";
+  const matchSummarySchema = z.object({
+    issues: z.array(z.string()).describe("Short titles for areas where each side had distinct arguments (e.g. 'Should rural areas be subsidized', 'Constitutionality of federal abortion ban')"),
+    summary: z.string().describe("3-4 sentences on what arguments made the difference"),
+  });
 
-  const { text } = await generateText({
+  const { object } = await generateObject<MatchSummary>({
     model: getModel(modelId),
-    prompt: `You are a debate analyst. The reader is about to participate in a 4-hour podcast debate on this topic and needs to quickly understand the landscape of arguments.
-
-${speaker1Name} vs ${speaker2Name}
-Final Score: ${speaker1Name} ${totalS1} - ${totalS2} ${speaker2Name}
-Winner: ${overallWinner}
+    schema: matchSummarySchema,
+    prompt: `You judged a debate. Here are your verdicts for each topic:
 
 ${debateSummaries}
 
-Write a self-contained analysis (MAX 600 WORDS) that maps the argument landscape. Someone who didn't watch the debate should be able to follow. The reader needs clarity on the strongest arguments, where the fault lines lie, and what they should investigate further.
+List the main areas of disagreement as short titles. Then write 3-4 sentences about what arguments made the difference. Do not mention the speakers by name. Just describe the arguments that were most effective and why.
 
-Cover:
-- Strongest arguments: What were the most compelling arguments made? Be specific about the actual claims and reasoning.
-- Load-bearing claims: What are the core propositions each side depends on? State them as clear, falsifiable claims.
-- Key tensions: Where do the two sides fundamentally disagree? What would resolve the disagreement?
-- Debater weaknesses: What were each speaker's blind spots? Where did they fail to counter arguments or leave claims undefended? What areas could each improve?
-- Patterns: Did certain argument types dominate? Were there recurring weaknesses?
-- Further investigation: What specific topics should the reader research before their debate?
-
-FORMATTING:
-- Write in propositional full sentences. State claims directly.
-- No markdown (no **, no ##, no bullet points)
-- Plain prose paragraphs with line breaks between sections
-- Be specific and analytical, not generic
-
-Use "${speaker1Name}" and "${speaker2Name}" as names throughout.`,
+Use plain, simple English. Short sentences. No jargon. Be concrete and specific, not abstract.`,
   });
 
-  return { summary: text.trim() };
+  return object;
 }

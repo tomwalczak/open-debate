@@ -4,8 +4,8 @@
   "workspaces": ["packages/*"],
   "scripts": {
     "build": "bun run --cwd packages/core build && bun run --cwd packages/cli build",
-    "start": "tsx packages/cli/src/index.tsx",
-    "dev": "tsx watch packages/cli/src/index.tsx"
+    "start": "bun packages/cli/src/index.tsx",
+    "dev": "bun --watch packages/cli/src/index.tsx"
   },
   "devDependencies": {
     "tsx": "^4.0.0",

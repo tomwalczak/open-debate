@@ -64,6 +64,7 @@ CLI args / Wizard → App (state orchestrator) → runMatch (match-engine.ts)
 
 ### Key Services (packages/core/src/services/)
 
+- **config-loader.ts** - Load and merge config from CLI, project, and user sources. `loadConfig()`, `getModelForRole()`
 - **model-provider.ts** - Multi-backend model initialization (OpenAI, Anthropic, Google, OpenRouter). Format: `backend:model-id` or just `model-id` (defaults to OpenRouter)
 - **match-engine.ts** - High-level match orchestration with `TopicPool` for concurrent topic execution
 - **debate-engine.ts** - `runDebate`, `generateSpeakerResponse` with streaming
@@ -74,8 +75,10 @@ CLI args / Wizard → App (state orchestrator) → runMatch (match-engine.ts)
 ### Key Types (packages/core/src/types/)
 
 - **AgentConfig** - id, name, systemPrompt, modelId, dirPath
-- **MatchConfig**, **DebateState**, **WizardState** in debate.ts
+- **MatchConfig** - includes optional `models: ResolvedModelConfig` for per-role models
+- **DebateState**, **WizardState** in debate.ts
 - **JudgeVerdict**, **FinalTally**, **MatchSummary** in judge.ts
+- **LLMRole**, **ResolvedConfig**, **ResolvedModelConfig**, **CLIModelOverrides** in config.ts
 
 ### Component Structure (packages/cli/src/components/)
 
@@ -112,6 +115,62 @@ Models are specified as `backend:model-id` or just `model-id`:
 - `qwen/qwen3-next-80b-a3b-instruct` - OpenRouter (default when no prefix)
 
 Required env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, `OPENROUTER_API_KEY`
+
+## Configuration System
+
+The system supports granular per-role model configuration via config files and CLI flags.
+
+### LLM Roles (11 total)
+- `speaker1`, `speaker2` - Debater responses
+- `judge` - Topic verdicts
+- `coach` - Debate coaching/hints
+- `topicGenerator` - Generate debate propositions
+- `narrator` - Real-time commentary
+- `analysis` - Self-analysis after debates
+- `promptGenerator` - Generate/refine agent prompts
+- `summary` - Match summary generation
+- `nameGenerator` - Extract display names
+- `promptParser` - Parse natural language prompts
+
+### Config File (`debate.config.json`)
+
+```json
+{
+  "models": {
+    "default": "qwen/qwen3-next-80b-a3b-instruct",
+    "speaker1": "anthropic:claude-opus-4-5-20251101",
+    "speaker2": "openai:gpt-5.2",
+    "judge": "google:gemini-3-pro-preview"
+  },
+  "debate": {
+    "turnsPerTopic": 5,
+    "topicsPerDebate": 5,
+    "debatesPerMatch": 1
+  }
+}
+```
+
+### Config Priority (highest to lowest)
+1. CLI flags (`--speaker1-model`, `--judge-model`, etc.)
+2. Project config (`./debate.config.json` or `.debate.config.json`)
+3. User config (`~/.config/open-debate/config.json`)
+4. Built-in defaults
+
+### Config Commands
+- `--init-config` - Create `debate.config.json`
+- `--show-config` - Show resolved configuration
+- `--show-models` - Show model for each role
+- `--validate-config` - Validate config file
+
+### Per-Role CLI Flags
+```bash
+--speaker1-model <id>   --judge-model <id>
+--speaker2-model <id>   --coach-model <id>
+--topic-model <id>      --narrator-model <id>
+--analysis-model <id>   --prompt-model <id>
+--summary-model <id>    --name-model <id>
+--parser-model <id>
+```
 
 ## Output Structure
 
