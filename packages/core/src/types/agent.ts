@@ -7,4 +7,4 @@ export interface AgentConfig {
 }
 
 export const PROMPT_MAX_LENGTH = 5000;
-export const DEFAULT_MODEL_ID = "google:gemini-2.5-flash";
+export const DEFAULT_MODEL_ID = "google/gemini-2.5-flash";
