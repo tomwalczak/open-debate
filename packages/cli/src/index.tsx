@@ -24,7 +24,6 @@ Options:
   --no-human-coach          Disable human coaching
   --human-side <side>       Which side human plays ("speaker1" or "speaker2")
   --debates <number>        Number of debates to run
-  --autopilot               Run debates without human intervention
   --no-ui                   Headless mode (no terminal UI, just console output)
   --fork-from <match-id>    Fork agents from specific match directory (use evolved prompts)
   --resume <match-id>       Resume an incomplete match from where it left off
@@ -82,7 +81,7 @@ Examples:
   npx debate
   npx debate --prompt "5 debates between an atheist and a Catholic about morality"
   npx debate --speaker1 "Alex Epstein" --speaker2 "Al Gore" --issues "climate,energy"
-  npx debate --speaker1 "Elon Musk" --speaker2 "Bill Gates" --debates 5 --autopilot
+  npx debate --speaker1 "Elon Musk" --speaker2 "Bill Gates" --debates 5
   npx debate --speaker1-model "anthropic:claude-opus-4-5-20251101" --speaker2-model "openai:gpt-5.2"
 
 Keys during debate:
@@ -199,7 +198,6 @@ export interface CliArgs {
   humanCoach?: boolean;
   humanSide?: "speaker1" | "speaker2";
   debates?: number;
-  autopilot?: boolean;
   noUi?: boolean;
   forkFrom?: string;
   resume?: string;
@@ -276,9 +274,6 @@ function parseArgs(rawArgs: string[]): CliArgs {
       case "--debates":
         result.debates = parseInt(nextArg, 10);
         i++;
-        break;
-      case "--autopilot":
-        result.autopilot = true;
         break;
       case "--no-ui":
         result.noUi = true;

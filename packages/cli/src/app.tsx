@@ -49,7 +49,6 @@ export interface AppProps {
     issues?: string;
     humanCoach?: boolean;
     debates?: number;
-    autopilot?: boolean;
     forkFrom?: string;
     resume?: string;
     selfImprove?: boolean;
