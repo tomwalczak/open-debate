@@ -31,24 +31,52 @@ function getBackendDisplayName(backend: Backend): string {
   }
 }
 
-// Get setup instructions for each backend
-function getSetupInstructions(backend: Backend, envVar: string): string {
-  const baseInstructions = `\n\nTo fix this:\n  1. Get an API key from `;
+// Get the full friendly error message for missing API key
+function getMissingKeyMessage(backend: Backend, envVar: string, modelId: string): string {
+  const intro = `Open Debate uses AI models to run debates. To get started, you need an API key.`;
 
-  switch (backend) {
-    case "openai":
-      return baseInstructions + `https://platform.openai.com/api-keys
-  2. Add to your .env file: ${envVar}=sk-...`;
-    case "anthropic":
-      return baseInstructions + `https://console.anthropic.com/
-  2. Add to your .env file: ${envVar}=sk-ant-...`;
-    case "google":
-      return baseInstructions + `https://aistudio.google.com/apikey
-  2. Add to your .env file: ${envVar}=AI...`;
-    case "openrouter":
-      return baseInstructions + `https://openrouter.ai/keys
-  2. Add to your .env file: ${envVar}=sk-or-...`;
-  }
+  const recommendation = backend === "openrouter"
+    ? `\nOpenRouter is recommended - it gives you access to many models with one key.`
+    : ``;
+
+  const getKeyInfo: Record<Backend, { url: string; example: string; note: string }> = {
+    openrouter: {
+      url: "https://openrouter.ai/keys",
+      example: "sk-or-v1-abc123...",
+      note: "Works with GPT, Claude, Gemini, Llama, and many more models",
+    },
+    openai: {
+      url: "https://platform.openai.com/api-keys",
+      example: "sk-abc123...",
+      note: "For GPT models directly from OpenAI",
+    },
+    anthropic: {
+      url: "https://console.anthropic.com/settings/keys",
+      example: "sk-ant-abc123...",
+      note: "For Claude models directly from Anthropic",
+    },
+    google: {
+      url: "https://aistudio.google.com/apikey",
+      example: "AIza...",
+      note: "For Gemini models directly from Google",
+    },
+  };
+
+  const info = getKeyInfo[backend];
+
+  return `${intro}${recommendation}
+
+The model "${modelId}" requires ${getBackendDisplayName(backend)}.
+
+Setup:
+  1. Get a free API key from: ${info.url}
+  2. Create a .env file in your project root (if you don't have one)
+  3. Add this line: ${envVar}=${info.example}
+
+${info.note}
+
+Alternative: Use a different model with --model flag
+  Example: --model google/gemini-2.5-flash (requires OPENROUTER_API_KEY)`;
 }
 
 interface ParsedModel {
@@ -166,16 +194,11 @@ function requireEnvKey(backend: Backend): string {
   const key = process.env[keyName];
 
   if (!key) {
-    const backendName = getBackendDisplayName(backend);
-    const instructions = getSetupInstructions(backend, keyName);
-
     throw new APIKeyError(
       backend,
       keyName,
       currentModelId,
-      `Missing API key for ${backendName}.\n\n` +
-      `You requested model "${currentModelId}" which requires ${keyName} to be set.` +
-      instructions
+      getMissingKeyMessage(backend, keyName, currentModelId)
     );
   }
 
