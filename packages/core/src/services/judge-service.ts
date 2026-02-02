@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getModel, DEFAULT_MODEL_ID } from "./model-provider.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { Exchange, DebateResult } from "../types/debate.js";
-import type { JudgeVerdict, FinalTally, MatchSummary, IssueArgumentSummary } from "../types/judge.js";
+import type { JudgeVerdict, FinalTally, MatchSummary, IssueArgumentSummary, ArgumentPoint } from "../types/judge.js";
 
 const verdictSchema = z.object({
   reasoning: z.string().describe("What were the strongest arguments? What logic or evidence was most compelling? (max 100 words)"),
@@ -119,41 +119,63 @@ Use plain, simple English. Short sentences. No jargon. Be concrete and specific,
   return object;
 }
 
+// Default model for argument analysis - GPT 5.2 with reasoning
+const ARGUMENT_ANALYSIS_MODEL = "openai:gpt-5.2";
+
+// Generic hierarchical argument structure (up to 3 levels)
+const argumentPointSchema = z.object({
+  claim: z.string().describe("A proposition, argument, or piece of evidence"),
+  support: z.array(z.object({
+    claim: z.string().describe("A supporting proposition, reason, or evidence"),
+    support: z.array(z.object({
+      claim: z.string().describe("Further support - a sub-reason, example, or detail"),
+    })).optional(),
+  })).optional(),
+});
+
 export async function generateIssueArgumentSummary(
   issue: string,
   speaker1Name: string,
   speaker2Name: string,
   debates: DebateResult[],
-  modelId: string = DEFAULT_MODEL_ID
+  modelId: string = ARGUMENT_ANALYSIS_MODEL
 ): Promise<IssueArgumentSummary> {
-  // Collect all exchanges across all debates
-  const allExchanges: Array<{ speakerName: string; message: string; topic: string }> = [];
-  for (const debate of debates) {
-    for (const tr of debate.topicResults) {
-      for (const ex of tr.exchanges) {
-        allExchanges.push({
-          speakerName: ex.speakerName,
-          message: ex.message,
-          topic: tr.topic,
-        });
-      }
+  // Use only the last debate
+  const lastDebate = debates[debates.length - 1];
+  if (!lastDebate) {
+    return {
+      issue,
+      speaker1Argument: { claim: "No debate data available" },
+      speaker2Argument: { claim: "No debate data available" },
+    };
+  }
+
+  // Collect exchanges from the last debate only
+  const exchanges: Array<{ speakerName: string; message: string; topic: string }> = [];
+  for (const tr of lastDebate.topicResults) {
+    for (const ex of tr.exchanges) {
+      exchanges.push({
+        speakerName: ex.speakerName,
+        message: ex.message,
+        topic: tr.topic,
+      });
     }
   }
 
   // Build condensed transcript grouped by speaker
-  const speaker1Messages = allExchanges
+  const speaker1Messages = exchanges
     .filter((ex) => ex.speakerName === speaker1Name)
     .map((ex) => `[Topic: ${ex.topic}]\n${ex.message}`)
     .join("\n\n---\n\n");
 
-  const speaker2Messages = allExchanges
+  const speaker2Messages = exchanges
     .filter((ex) => ex.speakerName === speaker2Name)
     .map((ex) => `[Topic: ${ex.topic}]\n${ex.message}`)
     .join("\n\n---\n\n");
 
   const issueArgSchema = z.object({
-    speaker1Argument: z.string().describe(`Hierarchical propositional summary of ${speaker1Name}'s best argument on this issue. Use indented bullet points to show logical structure (main claim → supporting reasons → evidence/examples)`),
-    speaker2Argument: z.string().describe(`Hierarchical propositional summary of ${speaker2Name}'s best argument on this issue. Use indented bullet points to show logical structure (main claim → supporting reasons → evidence/examples)`),
+    speaker1Argument: argumentPointSchema.describe(`${speaker1Name}'s best argument on this issue as a hierarchical structure`),
+    speaker2Argument: argumentPointSchema.describe(`${speaker2Name}'s best argument on this issue as a hierarchical structure`),
   });
 
   const { object } = await generateObject({
@@ -167,12 +189,16 @@ ${speaker1Messages}
 ${speaker2Name}'s statements:
 ${speaker2Messages}
 
-For the issue "${issue}", extract the BEST argument each side made. Present each as a hierarchical propositional summary using indented bullet points:
-- Main claim at top level
-  - Supporting reasons indented below
-    - Evidence or examples further indented
+For the issue "${issue}", extract the BEST argument each side made.
 
-Focus on the logical structure. Be concise but capture the key reasoning chain. Use plain English.`,
+Return a hierarchical structure where each node has:
+- "claim": a proposition, argument, or piece of evidence
+- "support" (optional): sub-claims that back it up
+
+Use 1-3 levels of depth as needed. A claim might be supported by reasons, evidence, examples, or sub-arguments—use whatever fits the content. Be concise. Use plain English.`,
+    providerOptions: {
+      openai: { reasoningEffort: "medium" },
+    },
   });
 
   return {

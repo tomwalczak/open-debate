@@ -14,8 +14,19 @@ export interface MatchSummary {
   summary: string;   // 3-4 sentences on what arguments made the difference
 }
 
+// Generic hierarchical argument structure (up to 3 levels deep)
+export interface ArgumentPoint {
+  claim: string;
+  support?: Array<{
+    claim: string;
+    support?: Array<{
+      claim: string;
+    }>;
+  }>;
+}
+
 export interface IssueArgumentSummary {
   issue: string;
-  speaker1Argument: string;  // Hierarchical propositional summary of best argument
-  speaker2Argument: string;
+  speaker1Argument: ArgumentPoint;
+  speaker2Argument: ArgumentPoint;
 }

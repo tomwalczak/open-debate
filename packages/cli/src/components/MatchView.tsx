@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import type { MatchState, TopicExecutionState, MatchSummary, IssueArgumentSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
+import type { MatchState, TopicExecutionState, MatchSummary, IssueArgumentSummary, ArgumentPoint, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
+
+// Recursive component to render hierarchical argument structure
+function ArgumentTree({ point, depth = 0 }: { point: ArgumentPoint; depth?: number }) {
+  return (
+    <Box flexDirection="column" marginLeft={depth > 0 ? 2 : 0}>
+      <Text wrap="wrap">{depth > 0 ? "- " : ""}{point.claim}</Text>
+      {point.support?.map((sub, i) => (
+        <ArgumentTree key={i} point={sub as ArgumentPoint} depth={depth + 1} />
+      ))}
+    </Box>
+  );
+}
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { TopicTabBar } from "./TopicTabBar.js";
@@ -285,15 +297,11 @@ export function MatchView({
                       <Text bold>• {issueArg.issue}</Text>
                       <Box flexDirection="column" marginLeft={2} marginTop={1}>
                         <Text color={theme.speaker1} bold>{firstSpeaker.name}:</Text>
-                        <Box marginLeft={2}>
-                          <Text wrap="wrap">{issueArg.speaker1Argument}</Text>
-                        </Box>
+                        <ArgumentTree point={issueArg.speaker1Argument} />
                       </Box>
                       <Box flexDirection="column" marginLeft={2} marginTop={1}>
                         <Text color={theme.speaker2} bold>{secondSpeaker.name}:</Text>
-                        <Box marginLeft={2}>
-                          <Text wrap="wrap">{issueArg.speaker2Argument}</Text>
-                        </Box>
+                        <ArgumentTree point={issueArg.speaker2Argument} />
                       </Box>
                     </Box>
                   ))}

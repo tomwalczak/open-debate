@@ -100,7 +100,20 @@ import {
   validateConfig,
   findProjectConfigPath,
 } from "@open-debate/core";
-import type { CLIModelOverrides, MatchConfig, MatchCallbacks, MatchState, MatchSummary, IssueArgumentSummary, TopicExecutionState } from "@open-debate/core";
+import type { CLIModelOverrides, MatchConfig, MatchCallbacks, MatchState, MatchSummary, IssueArgumentSummary, ArgumentPoint, TopicExecutionState } from "@open-debate/core";
+
+// Format hierarchical argument structure as indented text
+function formatArgumentPoint(arg: ArgumentPoint, indent = 0): string {
+  const prefix = "  ".repeat(indent);
+  const bullet = indent === 0 ? "" : "- ";
+  let result = `${prefix}${bullet}${arg.claim}`;
+  if (arg.support && arg.support.length > 0) {
+    for (const sub of arg.support) {
+      result += "\n" + formatArgumentPoint(sub as ArgumentPoint, indent + 1);
+    }
+  }
+  return result;
+}
 
 // Quick parse of model overrides for config commands
 function parseModelOverrides(rawArgs: string[]): CLIModelOverrides {
@@ -449,8 +462,10 @@ if (cliArgs.noUi) {
       onIssueArgumentReady: (issueArg: IssueArgumentSummary) => {
         receivedIssues++;
         console.log(`\n--- ${issueArg.issue} ---`);
-        console.log(`${speaker1Name}: ${issueArg.speaker1Argument}`);
-        console.log(`${speaker2Name}: ${issueArg.speaker2Argument}`);
+        console.log(`\n${speaker1Name}:`);
+        console.log(formatArgumentPoint(issueArg.speaker1Argument));
+        console.log(`\n${speaker2Name}:`);
+        console.log(formatArgumentPoint(issueArg.speaker2Argument));
         if (receivedIssues >= expectedIssues) resolveIssueArgs();
       },
       onTopicStateChange: (s: TopicExecutionState) => {
