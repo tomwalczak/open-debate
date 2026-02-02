@@ -54,14 +54,14 @@ Config Commands:
 
 Model Formats:
   Direct APIs:
+    google:gemini-2.5-flash             Gemini 2.5 Flash (default)
     openai:gpt-5.2                      GPT-5.2 via OpenAI
-    google:gemini-2.5-flash             Gemini 2.5 Flash via Google
     google:gemini-3-pro-preview         Gemini 3 Pro via Google
     anthropic:claude-sonnet-4-5-20251101 Claude Sonnet 4.5 via Anthropic
     anthropic:claude-opus-4-5-20251101  Claude Opus 4.5 via Anthropic
 
-  Via OpenRouter (default):
-    qwen/qwen3-next-80b-a3b-instruct    Qwen 3 80B (default)
+  Via OpenRouter:
+    qwen/qwen3-next-80b-a3b-instruct    Qwen 3 80B
     openrouter:openai/gpt-5.2           GPT-5.2 via OpenRouter
     openrouter:anthropic/claude-opus-4.5 Opus via OpenRouter
 
@@ -72,10 +72,10 @@ Config Files (priority order):
   4. Built-in defaults (lowest)
 
 Environment:
-  OPENROUTER_API_KEY              For OpenRouter models (default)
+  GOOGLE_GENERATIVE_AI_API_KEY    For google:* models (default)
   OPENAI_API_KEY                  For openai:* models
   ANTHROPIC_API_KEY               For anthropic:* models
-  GOOGLE_GENERATIVE_AI_API_KEY    For google:* models
+  OPENROUTER_API_KEY              For OpenRouter models
 
 Examples:
   npx debate
