@@ -7,7 +7,6 @@ export type LLMRole =
   | "judge"
   | "coach"
   | "topicGenerator"
-  | "narrator"
   | "analysis"
   | "promptGenerator"
   | "summary"
@@ -23,7 +22,6 @@ export const LLM_ROLES: LLMRole[] = [
   "judge",
   "coach",
   "topicGenerator",
-  "narrator",
   "analysis",
   "promptGenerator",
   "summary",
@@ -53,9 +51,6 @@ export interface ModelConfig {
   /** Model for generating debate topics */
   topicGenerator?: string | null;
 
-  /** Model for real-time narrator commentary */
-  narrator?: string | null;
-
   /** Model for self-analysis after debates */
   analysis?: string | null;
 
@@ -79,7 +74,6 @@ export interface DebateSettings {
   turnsPerTopic: number;
   topicsPerDebate: number;
   debatesPerMatch: number;
-  narrate: boolean;
   selfImprove: boolean;
   humanCoach: boolean;
 }
@@ -129,7 +123,6 @@ export interface CLIModelOverrides {
   judgeModel?: string;
   coachModel?: string;
   topicModel?: string;
-  narratorModel?: string;
   analysisModel?: string;
   promptModel?: string;
   summaryModel?: string;

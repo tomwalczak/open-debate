@@ -9,7 +9,6 @@ const matchConfigSchema = z.object({
   topicsPerDebate: z.number().min(1).max(50).default(5).describe("Topics per debate"),
   turnsPerTopic: z.number().min(1).max(20).default(5).describe("Turns per topic"),
   issueFocus: z.array(z.string()).optional().describe("Specific topics to focus on"),
-  narrate: z.boolean().default(true).describe("Enable narrator commentary"),
 });
 
 export type ParsedMatchConfig = z.infer<typeof matchConfigSchema>;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
-import type { MatchState, TopicExecutionState, MatchSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
+import type { MatchState, TopicExecutionState, MatchSummary, IssueArgumentSummary, HumanInputContext, HumanContinueContext, CoachContext, CoachMessage } from "@open-debate/core";
 import { Spinner } from "./Spinner.js";
 import { ProgressBar } from "./ProgressBar.js";
 import { TopicTabBar } from "./TopicTabBar.js";
@@ -15,6 +15,7 @@ interface MatchViewProps {
   phase: "init" | "generating" | "debating" | "judging" | "learning" | "complete";
   debateResults: Array<{ speaker1Wins: number; speaker2Wins: number }>;
   matchSummary?: MatchSummary | null;
+  issueArguments?: IssueArgumentSummary[];
   humanInputContext?: HumanInputContext | null;
   onHumanResponse?: (response: string) => void;
   humanContinueContext?: HumanContinueContext | null;
@@ -29,6 +30,7 @@ export function MatchView({
   phase,
   debateResults,
   matchSummary,
+  issueArguments = [],
   humanInputContext,
   onHumanResponse,
   humanContinueContext,
@@ -271,6 +273,37 @@ export function MatchView({
               <Box marginTop={1}>
                 <Text wrap="wrap">{matchSummary.summary}</Text>
               </Box>
+
+              {/* Issue Argument Breakdowns */}
+              {issueArguments.length > 0 && (
+                <Box flexDirection="column" marginTop={2}>
+                  <Text bold color={theme.accent}>Argument Breakdown:</Text>
+                  {issueArguments.map((issueArg, i) => (
+                    <Box key={i} flexDirection="column" marginTop={1} marginLeft={1}>
+                      <Text bold>• {issueArg.issue}</Text>
+                      <Box flexDirection="column" marginLeft={2} marginTop={1}>
+                        <Text color={theme.speaker1} bold>{firstSpeaker.name}:</Text>
+                        <Box marginLeft={2}>
+                          <Text wrap="wrap">{issueArg.speaker1Argument}</Text>
+                        </Box>
+                      </Box>
+                      <Box flexDirection="column" marginLeft={2} marginTop={1}>
+                        <Text color={theme.speaker2} bold>{secondSpeaker.name}:</Text>
+                        <Box marginLeft={2}>
+                          <Text wrap="wrap">{issueArg.speaker2Argument}</Text>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {/* Show spinner while generating remaining issue arguments */}
+              {matchSummary.issues.length > issueArguments.length && (
+                <Box marginTop={1}>
+                  <Spinner label={`Analyzing arguments (${issueArguments.length}/${matchSummary.issues.length})...`} />
+                </Box>
+              )}
             </Box>
           ) : (
             <Box marginTop={1}>

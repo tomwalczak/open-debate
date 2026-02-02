@@ -5,7 +5,6 @@ import {
   SettingsInput,
   TopicFocusInput,
   TopicReview,
-  OptionsToggle,
   ConfirmStart,
   MatchView,
   Spinner,
@@ -31,6 +30,7 @@ import {
   type CoachContext,
   type CoachMessage,
   type MatchSummary,
+  type IssueArgumentSummary,
   type CLIModelOverrides,
   type ResolvedConfig,
 } from "@open-debate/core";
@@ -54,7 +54,6 @@ export interface AppProps {
     resume?: string;
     selfImprove?: boolean;
     model?: string;
-    narrate?: boolean;
     judgeSeed?: string;
     humanSide?: "speaker1" | "speaker2";
     modelOverrides?: CLIModelOverrides;
@@ -72,6 +71,7 @@ export function App({ cliArgs }: AppProps) {
   const [topicStates, setTopicStates] = useState<Map<number, TopicExecutionState>>(new Map());
   const [debateResults, setDebateResults] = useState<Array<{ speaker1Wins: number; speaker2Wins: number }>>([]);
   const [matchSummary, setMatchSummary] = useState<MatchSummary | null>(null);
+  const [issueArguments, setIssueArguments] = useState<IssueArgumentSummary[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [humanInputResolver, setHumanInputResolver] = useState<((value: string) => void) | null>(null);
   const [humanInputContext, setHumanInputContext] = useState<HumanInputContext | null>(null);
@@ -104,6 +104,10 @@ export function App({ cliArgs }: AppProps) {
     },
     onMatchSummary: (summary: MatchSummary) => {
       setMatchSummary(summary);
+      setIssueArguments([]); // Reset issue arguments when new summary arrives
+    },
+    onIssueArgumentReady: (issueArg: IssueArgumentSummary) => {
+      setIssueArguments((prev) => [...prev, issueArg]);
     },
     onTopicStateChange: (topicState: TopicExecutionState) => {
       setTopicStates((prev) => {
@@ -232,7 +236,6 @@ export function App({ cliArgs }: AppProps) {
         issueFocus: parsed.issueFocus,
         modelId,
         models: resolvedConfig.models,
-        narrate: parsed.narrate,
         judgeSeed: cliArgs.judgeSeed,
         humanSide: cliArgs.humanSide,
       };
@@ -270,7 +273,6 @@ export function App({ cliArgs }: AppProps) {
       seed2: cliArgs.seed2,
       directPrompt1: cliArgs.directPrompt1,
       directPrompt2: cliArgs.directPrompt2,
-      narrate: cliArgs.narrate ?? false,
       judgeSeed: cliArgs.judgeSeed,
       humanSide: cliArgs.humanSide,
     };
@@ -320,7 +322,6 @@ export function App({ cliArgs }: AppProps) {
       issueFocus: parsed.issueFocus,
       modelId,
       models: resolvedConfig.models,
-      narrate: parsed.narrate,
     };
 
     try {
@@ -346,7 +347,6 @@ export function App({ cliArgs }: AppProps) {
       selfImprove: true,
       modelId,
       models: resolvedConfig.models,
-      narrate: wizard.narrate,
     };
 
     runMatch(matchConfig, callbacks).catch((error) => {
@@ -372,14 +372,6 @@ export function App({ cliArgs }: AppProps) {
     setWizard((prev) => ({
       ...prev,
       issueFocus: topics,
-      step: "options",
-    }));
-  };
-
-  const handleOptions = async (narrate: boolean) => {
-    setWizard((prev) => ({
-      ...prev,
-      narrate,
       step: "ready",
     }));
 
@@ -393,10 +385,9 @@ export function App({ cliArgs }: AppProps) {
       turnsPerTopic: wizard.turnsPerTopic,
       humanCoachEnabled: false,
       selfImprove: true,
-      issueFocus: wizard.issueFocus.length > 0 ? wizard.issueFocus : undefined,
+      issueFocus: topics.length > 0 ? topics : undefined,
       modelId,
       models: resolvedConfig.models,
-      narrate,
     };
 
     try {
@@ -430,14 +421,12 @@ export function App({ cliArgs }: AppProps) {
             turns={wizard.turnsPerTopic}
             topics={wizard.topicCount}
             debates={wizard.debateCount}
-            narrate={wizard.narrate}
             onConfirm={handleConfirmStart}
             onEdit={handleEditSettings}
           />
         )}
         {wizard.step === "settings" && <SettingsInput onComplete={handleSettings} />}
         {wizard.step === "topic_focus" && <TopicFocusInput onComplete={handleTopicFocus} />}
-        {wizard.step === "options" && <OptionsToggle onComplete={handleOptions} />}
       </Box>
     );
   }
@@ -451,6 +440,7 @@ export function App({ cliArgs }: AppProps) {
       phase={phase}
       debateResults={debateResults}
       matchSummary={matchSummary}
+      issueArguments={issueArguments}
       humanInputContext={humanInputContext}
       onHumanResponse={handleHumanResponse}
       humanContinueContext={humanContinueContext}

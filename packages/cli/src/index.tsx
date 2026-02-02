@@ -29,8 +29,6 @@ Options:
   --resume <match-id>       Resume an incomplete match from where it left off
   --self-improve            Enable agent self-improvement (default: on)
   --no-self-improve         Disable agent self-improvement
-  --narrate                 Enable real-time narrator commentary (off by default)
-  --no-narrate              Disable narrator commentary (default)
   --judge-seed <text>       Instructions for judge persona
 
 Model Options:
@@ -40,7 +38,6 @@ Model Options:
   --judge-model <id>        Model for judging
   --coach-model <id>        Model for debate coaching
   --topic-model <id>        Model for topic generation
-  --narrator-model <id>     Model for narrator
   --analysis-model <id>     Model for self-analysis
   --prompt-model <id>       Model for prompt generation
   --summary-model <id>      Model for match summary
@@ -114,7 +111,6 @@ function parseModelOverrides(rawArgs: string[]): CLIModelOverrides {
     "--judge-model": "judgeModel",
     "--coach-model": "coachModel",
     "--topic-model": "topicModel",
-    "--narrator-model": "narratorModel",
     "--analysis-model": "analysisModel",
     "--prompt-model": "promptModel",
     "--summary-model": "summaryModel",
@@ -195,7 +191,6 @@ export interface CliArgs {
   resume?: string;
   selfImprove?: boolean;
   model?: string;
-  narrate?: boolean;
   judgeSeed?: string;
   // Per-role model overrides
   modelOverrides?: CLIModelOverrides;
@@ -290,12 +285,6 @@ function parseArgs(rawArgs: string[]): CliArgs {
         modelOverrides.model = nextArg;
         i++;
         break;
-      case "--narrate":
-        result.narrate = true;
-        break;
-      case "--no-narrate":
-        result.narrate = false;
-        break;
       case "--judge-seed":
         result.judgeSeed = nextArg;
         i++;
@@ -319,10 +308,6 @@ function parseArgs(rawArgs: string[]): CliArgs {
         break;
       case "--topic-model":
         modelOverrides.topicModel = nextArg;
-        i++;
-        break;
-      case "--narrator-model":
-        modelOverrides.narratorModel = nextArg;
         i++;
         break;
       case "--analysis-model":

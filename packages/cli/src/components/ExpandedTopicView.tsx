@@ -37,8 +37,6 @@ export function ExpandedTopicView({
     exchanges,
     streamingText,
     verdict,
-    narratorSummary,
-    isNarratorStreaming,
   } = state;
 
   const scrollRef = useRef<ScrollViewRef>(null);
@@ -143,31 +141,17 @@ export function ExpandedTopicView({
               <Text color={speakerColor} bold>
                 {currentSpeakerName}:{" "}
               </Text>
-              {(streamingText || isNarratorStreaming) && <Spinner />}
-              {!streamingText && !isNarratorStreaming && !narratorSummary && (
+              {streamingText ? (
+                <Spinner />
+              ) : (
                 <Text dimColor>thinking...</Text>
               )}
             </Box>
-            {isNarratorStreaming ? (
-              <Box marginLeft={2}>
-                <Text wrap="wrap" color={theme.accent}>
-                  {streamingText || "..."}
-                </Text>
-              </Box>
-            ) : streamingText ? (
+            {streamingText && (
               <Box marginLeft={2}>
                 <Text wrap="wrap">{streamingText}</Text>
               </Box>
-            ) : null}
-          </Box>
-        )}
-
-        {/* Narrator summary when available (after exchange completes) */}
-        {narratorSummary && !isNarratorStreaming && !streamingText && (
-          <Box marginBottom={1} marginLeft={2}>
-            <Text wrap="wrap" color={theme.accent} italic>
-              {narratorSummary}
-            </Text>
+            )}
           </Box>
         )}
 

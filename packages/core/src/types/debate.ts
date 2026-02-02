@@ -20,7 +20,6 @@ export interface MatchConfig {
   seed2?: string;  // User instructions for speaker 2's initial prompt
   directPrompt1?: string;  // Direct system prompt for speaker 1 (bypasses generation)
   directPrompt2?: string;  // Direct system prompt for speaker 2 (bypasses generation)
-  narrate?: boolean;  // Enable real-time narrator commentary
   judgeSeed?: string;  // Instructions for judge persona
   humanSide?: "speaker1" | "speaker2";  // Which side the human plays
 }
@@ -53,8 +52,6 @@ export interface TopicExecutionState {
   exchanges: Exchange[];
   streamingText: string;
   verdict: JudgeVerdict | null;
-  narratorSummary?: string;  // Current summary being displayed
-  isNarratorStreaming?: boolean;  // True when narrator is actively streaming
 }
 
 export interface Exchange {
@@ -113,7 +110,6 @@ export interface WizardState {
     | "confirm"      // Quick start confirmation
     | "settings"     // Only if user chooses to edit
     | "topic_focus"
-    | "options"
     | "ready";
   speaker1Name: string;  // Display name (short)
   speaker2Name: string;  // Display name (short)
@@ -123,7 +119,6 @@ export interface WizardState {
   topicCount: number;
   debateCount: number;
   issueFocus: string[];
-  narrate: boolean;
 }
 
 export const DEFAULT_WIZARD_STATE: WizardState = {
@@ -136,5 +131,4 @@ export const DEFAULT_WIZARD_STATE: WizardState = {
   topicCount: 5,
   debateCount: 1,
   issueFocus: [],
-  narrate: false, // Default to narrator off
 };

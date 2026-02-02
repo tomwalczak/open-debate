@@ -1,13 +1,12 @@
 import { streamText } from "ai";
 import { getModel } from "./model-provider.js";
 import { createJudgeAgent } from "./agent-factory.js";
-import { judgeTopic, calculateFinalTally, generateMatchSummary } from "./judge-service.js";
-import type { MatchSummary } from "../types/judge.js";
+import { judgeTopic, calculateFinalTally, generateMatchSummary, generateIssueArgumentSummary } from "./judge-service.js";
+import type { MatchSummary, IssueArgumentSummary } from "../types/judge.js";
 import { updateAgentAfterDebate } from "./agent-learner.js";
 import { createMatch, saveDebateResult, logMatchEvent, logMatchError, loadMatchForResume, type CreateMatchResult } from "./match-storage.js";
 import { generateTopics } from "./topic-generator.js";
 import { generateId } from "../utils/id.js";
-import { narrateExchange } from "./narrator.js";
 import { processHumanInput } from "./response-expander.js";
 import type { AgentConfig } from "../types/agent.js";
 import type { LLMRole } from "../types/config.js";
@@ -30,17 +29,33 @@ function getModelForRole(config: MatchConfig, role: LLMRole): string {
 
 const MAX_CONCURRENT_TOPICS = 5;
 
-// Calculate reading delay based on text length
-// Fast reading speed: ~6 words per second
-// Short buffer after streaming since user reads while it streams
-function getReadingDelay(text: string): number {
-  const words = text.split(/\s+/).length;
-  const readingTimeMs = (words / 6) * 1000; // 6 words per second
-  // Minimum 1s, maximum 3s - user already read during streaming
-  return Math.min(Math.max(readingTimeMs * 0.3, 1000), 3000);
+/**
+ * Generate issue argument summaries in parallel and deliver via callback.
+ * Does not block - fires callbacks as each issue completes.
+ */
+function generateIssueArgumentsInBackground(
+  summary: MatchSummary,
+  speaker1Name: string,
+  speaker2Name: string,
+  debates: import("../types/debate.js").DebateResult[],
+  modelId: string,
+  dirPath: string,
+  onIssueArgumentReady: (issueArg: IssueArgumentSummary) => void
+): void {
+  for (const issue of summary.issues) {
+    generateIssueArgumentSummary(
+      issue,
+      speaker1Name,
+      speaker2Name,
+      debates,
+      modelId
+    ).then((issueArg) => {
+      onIssueArgumentReady(issueArg);
+    }).catch((err) => {
+      logMatchError(dirPath, err, `Failed to generate argument summary for issue: ${issue}`);
+    });
+  }
 }
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export interface HumanInputContext {
   topicIndex: number;
@@ -60,6 +75,7 @@ export interface MatchCallbacks {
   onDebateEnd: (debateNumber: number, speaker1Wins: number, speaker2Wins: number) => void;
   onMatchEnd: (match: MatchState) => void;
   onMatchSummary: (summary: MatchSummary) => void;
+  onIssueArgumentReady?: (issueArg: IssueArgumentSummary) => void;
   onTopicStateChange: (topicState: TopicExecutionState) => void;
   onTopicStreamChunk: (topicIndex: number, chunk: string) => void;
   onLearning: () => void;
@@ -164,7 +180,6 @@ async function executeTopic(
   secondSpeaker: AgentConfig,
   judge: AgentConfig,
   callbacks: MatchCallbacks,
-  narrate: boolean,
   config: MatchConfig,
   humanSpeakerId?: string,
   humanSpeakerPersona?: string
@@ -187,7 +202,7 @@ async function executeTopic(
   for (let turn = 1; turn <= turnsPerTopic; turn++) {
     topicState = { ...topicState, currentTurn: turn };
 
-    // First speaker - keep previous narratorSummary visible until new narrator starts
+    // First speaker's turn
     topicState = {
       ...topicState,
       currentSpeakerId: firstSpeaker.id,
@@ -227,15 +242,12 @@ async function executeTopic(
         exchanges,
         turn,
         (chunk) => {
-          // Only stream raw text when narrator is off
-          if (!narrate) {
-            topicState = {
-              ...topicState,
-              streamingText: topicState.streamingText + chunk,
-            };
-            callbacks.onTopicStreamChunk(topicIndex, chunk);
-            callbacks.onTopicStateChange(topicState);
-          }
+          topicState = {
+            ...topicState,
+            streamingText: topicState.streamingText + chunk,
+          };
+          callbacks.onTopicStreamChunk(topicIndex, chunk);
+          callbacks.onTopicStateChange(topicState);
         }
       );
     }
@@ -250,49 +262,12 @@ async function executeTopic(
     };
     exchanges.push(exchange1);
 
-    // Generate narrator summary if enabled (streamed)
-    if (narrate) {
-      const previousExchanges = exchanges.slice(0, -1);
-      topicState = {
-        ...topicState,
-        exchanges: [...exchanges],
-        streamingText: "",
-        narratorSummary: undefined, // Clear old summary when new narrator starts
-        isNarratorStreaming: true,
-      };
-      callbacks.onTopicStateChange(topicState);
-
-      const summary = await narrateExchange(
-        exchange1,
-        topic,
-        getModelForRole(config, "narrator"),
-        previousExchanges,
-        (chunk) => {
-          topicState = {
-            ...topicState,
-            streamingText: topicState.streamingText + chunk,
-          };
-          callbacks.onTopicStateChange(topicState);
-        }
-      );
-      topicState = {
-        ...topicState,
-        streamingText: "",
-        narratorSummary: summary,
-        isNarratorStreaming: false,
-      };
-      callbacks.onTopicStateChange(topicState);
-
-      // Give user time to read the summary
-      await delay(getReadingDelay(summary));
-    } else {
-      topicState = {
-        ...topicState,
-        exchanges: [...exchanges],
-        streamingText: "",
-      };
-      callbacks.onTopicStateChange(topicState);
-    }
+    topicState = {
+      ...topicState,
+      exchanges: [...exchanges],
+      streamingText: "",
+    };
+    callbacks.onTopicStateChange(topicState);
 
     // If human is second speaker, wait for them to read opponent's response before their turn
     if (humanSpeakerId && secondSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
@@ -307,7 +282,7 @@ async function executeTopic(
       });
     }
 
-    // Second speaker - keep previous narratorSummary visible until new narrator starts
+    // Second speaker's turn
     topicState = {
       ...topicState,
       currentSpeakerId: secondSpeaker.id,
@@ -347,15 +322,12 @@ async function executeTopic(
         exchanges,
         turn,
         (chunk) => {
-          // Only stream raw text when narrator is off
-          if (!narrate) {
-            topicState = {
-              ...topicState,
-              streamingText: topicState.streamingText + chunk,
-            };
-            callbacks.onTopicStreamChunk(topicIndex, chunk);
-            callbacks.onTopicStateChange(topicState);
-          }
+          topicState = {
+            ...topicState,
+            streamingText: topicState.streamingText + chunk,
+          };
+          callbacks.onTopicStreamChunk(topicIndex, chunk);
+          callbacks.onTopicStateChange(topicState);
         }
       );
     }
@@ -370,49 +342,12 @@ async function executeTopic(
     };
     exchanges.push(exchange2);
 
-    // Generate narrator summary if enabled (streamed)
-    if (narrate) {
-      const previousExchanges = exchanges.slice(0, -1);
-      topicState = {
-        ...topicState,
-        exchanges: [...exchanges],
-        streamingText: "",
-        narratorSummary: undefined, // Clear old summary when new narrator starts
-        isNarratorStreaming: true,
-      };
-      callbacks.onTopicStateChange(topicState);
-
-      const summary = await narrateExchange(
-        exchange2,
-        topic,
-        getModelForRole(config, "narrator"),
-        previousExchanges,
-        (chunk) => {
-          topicState = {
-            ...topicState,
-            streamingText: topicState.streamingText + chunk,
-          };
-          callbacks.onTopicStateChange(topicState);
-        }
-      );
-      topicState = {
-        ...topicState,
-        streamingText: "",
-        narratorSummary: summary,
-        isNarratorStreaming: false,
-      };
-      callbacks.onTopicStateChange(topicState);
-
-      // Give user time to read the summary
-      await delay(getReadingDelay(summary));
-    } else {
-      topicState = {
-        ...topicState,
-        exchanges: [...exchanges],
-        streamingText: "",
-      };
-      callbacks.onTopicStateChange(topicState);
-    }
+    topicState = {
+      ...topicState,
+      exchanges: [...exchanges],
+      streamingText: "",
+    };
+    callbacks.onTopicStateChange(topicState);
 
     // If human is first speaker, wait for them to read opponent's response before next turn
     if (humanSpeakerId && firstSpeaker.id === humanSpeakerId && callbacks.onWaitForHumanContinue) {
@@ -502,7 +437,6 @@ async function runSingleDebate(
         goesSecond,
         judge,
         callbacks,
-        config.narrate ?? false,
         config,
         humanSpeakerId,
         humanSpeakerPersona
@@ -631,6 +565,19 @@ export async function runMatch(
       getModelForRole(config, "summary")
     );
     callbacks.onMatchSummary(summary);
+
+    // Generate issue argument summaries in parallel (non-blocking)
+    if (callbacks.onIssueArgumentReady && summary.issues.length > 0) {
+      generateIssueArgumentsInBackground(
+        summary,
+        config.speaker1Name,
+        config.speaker2Name,
+        match.completedDebates,
+        getModelForRole(config, "summary"),
+        match.dirPath,
+        callbacks.onIssueArgumentReady
+      );
+    }
   } catch (error) {
     // Don't fail the match if summary fails
     logMatchError(match.dirPath, error, "Failed to generate match summary");
@@ -743,6 +690,19 @@ export async function resumeMatch(
       getModelForRole(config, "summary")
     );
     callbacks.onMatchSummary(summary);
+
+    // Generate issue argument summaries in parallel (non-blocking)
+    if (callbacks.onIssueArgumentReady && summary.issues.length > 0) {
+      generateIssueArgumentsInBackground(
+        summary,
+        config.speaker1Name,
+        config.speaker2Name,
+        match.completedDebates,
+        getModelForRole(config, "summary"),
+        match.dirPath,
+        callbacks.onIssueArgumentReady
+      );
+    }
   } catch (error) {
     // Don't fail the match if summary fails
     logMatchError(match.dirPath, error, "Failed to generate match summary");

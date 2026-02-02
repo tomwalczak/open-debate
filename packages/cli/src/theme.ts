@@ -15,7 +15,7 @@ export const theme = {
   speaker2: "magenta",
 
   // === ACCENT ===
-  // Primary accent for active/focus states, narrator text, progress indicators
+  // Primary accent for active/focus states, progress indicators
   accent: "cyan",
 
   // === STATUS ===

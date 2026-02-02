@@ -19,7 +19,7 @@ export function TopicPanel({
   speaker2Name,
   totalTurns,
 }: TopicPanelProps) {
-  const { topicIndex, topic, status, currentTurn, currentSpeakerId, streamingText, verdict, narratorSummary, isNarratorStreaming } = state;
+  const { topicIndex, topic, status, currentTurn, currentSpeakerId, streamingText, verdict } = state;
 
   const currentSpeakerName = currentSpeakerId === speaker1Id ? speaker1Name : speaker2Name;
   const speakerColor = currentSpeakerId === speaker1Id ? theme.speaker1 : theme.speaker2;
@@ -73,28 +73,18 @@ export function TopicPanel({
               <Text color={speakerColor} bold>
                 {currentSpeakerName}:{" "}
               </Text>
-              {isNarratorStreaming ? (
+              {streamingText ? (
                 <Spinner />
-              ) : streamingText ? (
-                <Spinner />
-              ) : !narratorSummary ? (
+              ) : (
                 <Text dimColor>thinking...</Text>
-              ) : null}
+              )}
             </Box>
-            {/* Show content: narrator streaming, raw streaming, or persisted summary */}
-            {isNarratorStreaming ? (
-              <Text wrap="wrap" color={theme.accent}>
-                {truncatedStream || "..."}
-              </Text>
-            ) : streamingText ? (
+            {/* Show streaming content */}
+            {streamingText && (
               <Text wrap="wrap">
                 {truncatedStream}
               </Text>
-            ) : narratorSummary ? (
-              <Text wrap="wrap" color={theme.accent}>
-                {narratorSummary}
-              </Text>
-            ) : null}
+            )}
           </>
         )}
 

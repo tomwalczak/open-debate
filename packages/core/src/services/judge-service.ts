@@ -118,3 +118,66 @@ Use plain, simple English. Short sentences. No jargon. Be concrete and specific,
 
   return object;
 }
+
+export async function generateIssueArgumentSummary(
+  issue: string,
+  speaker1Name: string,
+  speaker2Name: string,
+  debates: DebateResult[],
+  modelId: string = DEFAULT_MODEL_ID
+): Promise<IssueArgumentSummary> {
+  // Collect all exchanges across all debates
+  const allExchanges: Array<{ speakerName: string; message: string; topic: string }> = [];
+  for (const debate of debates) {
+    for (const tr of debate.topicResults) {
+      for (const ex of tr.exchanges) {
+        allExchanges.push({
+          speakerName: ex.speakerName,
+          message: ex.message,
+          topic: tr.topic,
+        });
+      }
+    }
+  }
+
+  // Build condensed transcript grouped by speaker
+  const speaker1Messages = allExchanges
+    .filter((ex) => ex.speakerName === speaker1Name)
+    .map((ex) => `[Topic: ${ex.topic}]\n${ex.message}`)
+    .join("\n\n---\n\n");
+
+  const speaker2Messages = allExchanges
+    .filter((ex) => ex.speakerName === speaker2Name)
+    .map((ex) => `[Topic: ${ex.topic}]\n${ex.message}`)
+    .join("\n\n---\n\n");
+
+  const issueArgSchema = z.object({
+    speaker1Argument: z.string().describe(`Hierarchical propositional summary of ${speaker1Name}'s best argument on this issue. Use indented bullet points to show logical structure (main claim → supporting reasons → evidence/examples)`),
+    speaker2Argument: z.string().describe(`Hierarchical propositional summary of ${speaker2Name}'s best argument on this issue. Use indented bullet points to show logical structure (main claim → supporting reasons → evidence/examples)`),
+  });
+
+  const { object } = await generateObject<{ speaker1Argument: string; speaker2Argument: string }>({
+    model: getModel(modelId),
+    schema: issueArgSchema,
+    prompt: `Issue: "${issue}"
+
+${speaker1Name}'s statements:
+${speaker1Messages}
+
+${speaker2Name}'s statements:
+${speaker2Messages}
+
+For the issue "${issue}", extract the BEST argument each side made. Present each as a hierarchical propositional summary using indented bullet points:
+- Main claim at top level
+  - Supporting reasons indented below
+    - Evidence or examples further indented
+
+Focus on the logical structure. Be concise but capture the key reasoning chain. Use plain English.`,
+  });
+
+  return {
+    issue,
+    speaker1Argument: object.speaker1Argument,
+    speaker2Argument: object.speaker2Argument,
+  };
+}

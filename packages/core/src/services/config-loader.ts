@@ -27,7 +27,6 @@ export const DEFAULT_MODEL_CONFIG: ModelConfig = {
   judge: null,
   coach: null,
   topicGenerator: null,
-  narrator: null,
   analysis: null,
   promptGenerator: null,
   summary: null,
@@ -42,7 +41,6 @@ export const DEFAULT_DEBATE_SETTINGS: DebateSettings = {
   turnsPerTopic: 5,
   topicsPerDebate: 5,
   debatesPerMatch: 1,
-  narrate: false,
   selfImprove: false,
   humanCoach: false,
 };
@@ -142,7 +140,6 @@ const CLI_TO_ROLE_MAP: Record<keyof Omit<CLIModelOverrides, "model">, LLMRole> =
   judgeModel: "judge",
   coachModel: "coach",
   topicModel: "topicGenerator",
-  narratorModel: "narrator",
   analysisModel: "analysis",
   promptModel: "promptGenerator",
   summaryModel: "summary",
@@ -184,7 +181,6 @@ export function loadConfig(cliOverrides?: CLIModelOverrides): ResolvedConfig {
     judge: config.models.judge || defaultModel,
     coach: config.models.coach || defaultModel,
     topicGenerator: config.models.topicGenerator || defaultModel,
-    narrator: config.models.narrator || defaultModel,
     analysis: config.models.analysis || defaultModel,
     promptGenerator: config.models.promptGenerator || defaultModel,
     summary: config.models.summary || defaultModel,
@@ -219,7 +215,6 @@ export function generateDefaultConfigContent(): string {
       judge: null,
       coach: null,
       topicGenerator: null,
-      narrator: null,
       analysis: null,
       promptGenerator: null,
       summary: null,
@@ -267,7 +262,6 @@ const ROLE_DESCRIPTIONS: Record<LLMRole, string> = {
   judge: "Topic verdicts",
   coach: "Debate coaching",
   topicGenerator: "Topic generation",
-  narrator: "Narrator commentary",
   analysis: "Self-analysis",
   promptGenerator: "Prompt generation",
   summary: "Match summary",
@@ -383,7 +377,6 @@ export function validateConfig(filepath: string): { valid: boolean; errors: stri
         "judge",
         "coach",
         "topicGenerator",
-        "narrator",
         "analysis",
         "promptGenerator",
         "summary",
@@ -409,7 +402,7 @@ export function validateConfig(filepath: string): { valid: boolean; errors: stri
     } else {
       const debate = cfg.debate as Record<string, unknown>;
       const numFields = ["turnsPerTopic", "topicsPerDebate", "debatesPerMatch"];
-      const boolFields = ["narrate", "selfImprove", "humanCoach"];
+      const boolFields = ["selfImprove", "humanCoach"];
 
       for (const field of numFields) {
         if (debate[field] !== undefined && typeof debate[field] !== "number") {

@@ -120,12 +120,11 @@ Required env vars: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_GENERATIVE_AI_
 
 The system supports granular per-role model configuration via config files and CLI flags.
 
-### LLM Roles (11 total)
+### LLM Roles (10 total)
 - `speaker1`, `speaker2` - Debater responses
 - `judge` - Topic verdicts
 - `coach` - Debate coaching/hints
 - `topicGenerator` - Generate debate propositions
-- `narrator` - Real-time commentary
 - `analysis` - Self-analysis after debates
 - `promptGenerator` - Generate/refine agent prompts
 - `summary` - Match summary generation
@@ -166,10 +165,9 @@ The system supports granular per-role model configuration via config files and C
 ```bash
 --speaker1-model <id>   --judge-model <id>
 --speaker2-model <id>   --coach-model <id>
---topic-model <id>      --narrator-model <id>
---analysis-model <id>   --prompt-model <id>
---summary-model <id>    --name-model <id>
---parser-model <id>
+--topic-model <id>      --analysis-model <id>
+--prompt-model <id>     --summary-model <id>
+--name-model <id>       --parser-model <id>
 ```
 
 ## Output Structure

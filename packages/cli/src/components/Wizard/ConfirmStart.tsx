@@ -8,7 +8,6 @@ interface ConfirmStartProps {
   turns: number;
   topics: number;
   debates: number;
-  narrate: boolean;
   onConfirm: () => void;
   onEdit: () => void;
 }
@@ -19,7 +18,6 @@ export function ConfirmStart({
   turns,
   topics,
   debates,
-  narrate,
   onConfirm,
   onEdit,
 }: ConfirmStartProps) {
@@ -43,9 +41,6 @@ export function ConfirmStart({
         </Text>
         <Text>
           <Text dimColor>Format:</Text> {turns} turns × {topics} topics × {debates} debate{debates > 1 ? "s" : ""}
-        </Text>
-        <Text>
-          <Text dimColor>Narrator:</Text> {narrate ? <Text color={theme.success}>ON</Text> : <Text dimColor>OFF</Text>}
         </Text>
       </Box>
 
