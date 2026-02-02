@@ -6,7 +6,50 @@ import type { LanguageModel } from "ai";
 import { DEFAULT_MODEL_ID } from "../types/agent.js";
 
 // Backend = the API we're calling (OpenAI, Anthropic, Google, OpenRouter)
-type Backend = "openai" | "anthropic" | "google" | "openrouter";
+export type Backend = "openai" | "anthropic" | "google" | "openrouter";
+
+// Custom error for API key issues
+export class APIKeyError extends Error {
+  constructor(
+    public backend: Backend,
+    public envVar: string,
+    public modelId: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "APIKeyError";
+  }
+}
+
+// Get user-friendly backend name
+function getBackendDisplayName(backend: Backend): string {
+  switch (backend) {
+    case "openai": return "OpenAI";
+    case "anthropic": return "Anthropic";
+    case "google": return "Google (Gemini)";
+    case "openrouter": return "OpenRouter";
+  }
+}
+
+// Get setup instructions for each backend
+function getSetupInstructions(backend: Backend, envVar: string): string {
+  const baseInstructions = `\n\nTo fix this:\n  1. Get an API key from `;
+
+  switch (backend) {
+    case "openai":
+      return baseInstructions + `https://platform.openai.com/api-keys
+  2. Add to your .env file: ${envVar}=sk-...`;
+    case "anthropic":
+      return baseInstructions + `https://console.anthropic.com/
+  2. Add to your .env file: ${envVar}=sk-ant-...`;
+    case "google":
+      return baseInstructions + `https://aistudio.google.com/apikey
+  2. Add to your .env file: ${envVar}=AI...`;
+    case "openrouter":
+      return baseInstructions + `https://openrouter.ai/keys
+  2. Add to your .env file: ${envVar}=sk-or-...`;
+  }
+}
 
 interface ParsedModel {
   backend: Backend;
@@ -108,6 +151,9 @@ let openaiInstance: ReturnType<typeof createOpenAI> | null = null;
 let anthropicInstance: ReturnType<typeof createAnthropic> | null = null;
 let googleInstance: ReturnType<typeof createGoogleGenerativeAI> | null = null;
 
+// Track which model is being requested for better error messages
+let currentModelId = "";
+
 function requireEnvKey(backend: Backend): string {
   const keyMap: Record<Backend, string> = {
     openai: "OPENAI_API_KEY",
@@ -120,11 +166,17 @@ function requireEnvKey(backend: Backend): string {
   const key = process.env[keyName];
 
   if (!key) {
-    console.error(
-      `Error: ${keyName} environment variable is required for ${backend} models`
+    const backendName = getBackendDisplayName(backend);
+    const instructions = getSetupInstructions(backend, keyName);
+
+    throw new APIKeyError(
+      backend,
+      keyName,
+      currentModelId,
+      `Missing API key for ${backendName}.\n\n` +
+      `You requested model "${currentModelId}" which requires ${keyName} to be set.` +
+      instructions
     );
-    console.error("Set it in your .env file or export it in your shell");
-    process.exit(1);
   }
 
   return key;
@@ -202,6 +254,7 @@ function getOpenRouterModel(modelId: string): LanguageModel {
 export function getModel(
   fullModelId: string = DEFAULT_MODEL_ID
 ): LanguageModel {
+  currentModelId = fullModelId; // Track for error messages
   const { backend, modelId } = parseModelId(fullModelId);
 
   switch (backend) {
@@ -217,4 +270,16 @@ export function getModel(
   }
 }
 
-export { DEFAULT_MODEL_ID };
+// Get backend info for a model ID (useful for error messages)
+export function getModelBackend(fullModelId: string): { backend: Backend; envVar: string } {
+  const { backend } = parseModelId(fullModelId);
+  const keyMap: Record<Backend, string> = {
+    openai: "OPENAI_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    google: "GOOGLE_GENERATIVE_AI_API_KEY",
+    openrouter: "OPENROUTER_API_KEY",
+  };
+  return { backend, envVar: keyMap[backend] };
+}
+
+export { DEFAULT_MODEL_ID, getBackendDisplayName };

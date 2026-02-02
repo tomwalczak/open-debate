@@ -1,5 +1,10 @@
-import { streamText } from "./llm.js";
-import { getModel } from "./model-provider.js";
+import { streamText, LLMError } from "./llm.js";
+import { getModel, APIKeyError } from "./model-provider.js";
+
+// Check if an error is critical and should stop the match
+function isCriticalError(error: unknown): boolean {
+  return error instanceof APIKeyError || error instanceof LLMError;
+}
 import { createJudgeAgent } from "./agent-factory.js";
 import { judgeTopic, calculateFinalTally, generateMatchSummary, generateIssueArgumentSummary } from "./judge-service.js";
 import type { MatchSummary, IssueArgumentSummary } from "../types/judge.js";
@@ -551,6 +556,11 @@ export async function runMatch(
       completedDebates: match.completedDebates.length
     });
     callbacks.onError(error as Error);
+
+    // Re-throw critical errors (missing API key, auth failures, etc.)
+    if (isCriticalError(error)) {
+      throw error;
+    }
   }
 
   logMatchEvent(match.dirPath, "MATCH_COMPLETE", "Match finished", {
@@ -677,6 +687,11 @@ export async function resumeMatch(
       completedDebates: match.completedDebates.length
     });
     callbacks.onError(error as Error);
+
+    // Re-throw critical errors (missing API key, auth failures, etc.)
+    if (isCriticalError(error)) {
+      throw error;
+    }
   }
 
   logMatchEvent(match.dirPath, "MATCH_COMPLETE", "Match finished", {

@@ -100,6 +100,8 @@ import {
   formatModels,
   validateConfig,
   findProjectConfigPath,
+  APIKeyError,
+  LLMError,
 } from "@open-debate/core";
 import type { CLIModelOverrides, MatchConfig, MatchCallbacks, MatchState, MatchSummary, IssueArgumentSummary, ArgumentPoint, TopicExecutionState } from "@open-debate/core";
 
@@ -480,7 +482,12 @@ if (cliArgs.noUi) {
       },
       onTopicStreamChunk: () => {},
       onLearning: () => console.log("Agents reflecting..."),
-      onError: (e: Error) => console.error("Error:", e.message),
+      onError: (e: Error) => {
+        // Don't log API/LLM errors here - they'll be caught and displayed nicely below
+        if (!(e instanceof APIKeyError) && !(e instanceof LLMError)) {
+          console.error("Error:", e.message);
+        }
+      },
     };
 
     try {
@@ -491,7 +498,23 @@ if (cliArgs.noUi) {
       console.log(`\nSaved to matches/${match.id}/`);
       process.exit(0);
     } catch (error) {
-      console.error("Match failed:", error);
+      // Handle API key errors with helpful message
+      if (error instanceof APIKeyError) {
+        console.error("\n❌ API Key Error\n");
+        console.error(error.message);
+        process.exit(1);
+      }
+
+      // Handle LLM errors (auth failures, model not found, etc.)
+      if (error instanceof LLMError) {
+        console.error("\n❌ LLM Error\n");
+        console.error(error.message);
+        process.exit(1);
+      }
+
+      // Generic error
+      console.error("\n❌ Match failed\n");
+      console.error(error instanceof Error ? error.message : String(error));
       process.exit(1);
     }
   });

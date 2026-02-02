@@ -1,4 +1,5 @@
-export { getModel, DEFAULT_MODEL_ID, MODEL_REGISTRY, type ModelInfo } from "./model-provider.js";
+export { getModel, getModelBackend, getBackendDisplayName, DEFAULT_MODEL_ID, MODEL_REGISTRY, APIKeyError, type ModelInfo, type Backend } from "./model-provider.js";
+export { LLMError } from "./llm.js";
 export {
   loadConfig,
   getModelForRole,
